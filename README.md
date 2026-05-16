@@ -12,8 +12,6 @@
 
 点击这里打开：**[https://bandrage.github.io/randomshapes/](https://bandrage.github.io/randomshapes/)**
 
-（如果这是你的个人主页站点，网址为 `https://你的用户名.github.io`）
-
 ## 📦 本地运行
 
 1. 克隆本仓库
