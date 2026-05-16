@@ -291,20 +291,20 @@
     </div>
 
     <div class="random-panel">
-        <label><input type="checkbox" id="autoRandomCheckbox"> 自动随机</label>
+        <label><input type="checkbox" id="autoRandomCheckbox"> 自动随机 |</label>
         
         <label>
-        <input type="checkbox" id="randomRotate"> 旋转
+            <input type="checkbox" id="randomRotate"> 旋转
         </label>
-        <div class="indent" style="margin-left:20px; font-size:12px; border-left:1px solid #aaa; padding-left:6px;">
-        <label><input type="checkbox" id="randomRotateLock90" disabled> 锁定90°</label>
+        <div class="indent" style="margin-left:1px; font-size:12px;">
+            <label><input type="checkbox" id="randomRotateLock90" disabled> 锁定90° |</label>
         </div>
 
         <label>
-        <input type="checkbox" id="randomScaleNonUniform"> 比例(不等比)
+            <input type="checkbox" id="randomScaleNonUniform"> 比例(不等比)
         </label>
-        <div class="indent" style="margin-left:20px; font-size:12px; border-left:1px solid #aaa; padding-left:6px;">
-        <label><input type="checkbox" id="randomScaleLockXY" disabled> 锁定XY轴</label>
+        <div class="indent" style="margin-left:1px; font-size:12px;">
+            <label><input type="checkbox" id="randomScaleLockXY" disabled> 锁定XY轴 |</label>
         </div>
 
         <label><input type="checkbox" id="randomScaleUniform"> 缩放(等比)</label>
@@ -542,48 +542,85 @@
             document.getElementById('placedCount').innerText = placedObjects.length;
         }
 
-        // 放置几何体
-        function placeShapeAt(x, z, y, rotationOverride = null) {
-            const geo = SHAPES[currentShapeKey].createGeo();
-            const mesh = new THREE.Mesh(geo, createSolidMaterial());
+        // ========== 简化镜像旋转函数 ==========
+        // ====== 镜像矩阵函数 ======
+        function createMirroredMatrix(originalMesh, axis = 'x') {
+            const matrix = new THREE.Matrix4();
+            matrix.copy(originalMesh.matrix); // 世界矩阵
+            const mirror = new THREE.Matrix4();
 
-            // 对称模式下生成镜像
-            if (symmetryMode) {
-                createMeshAt(-x, z, y, rotationOverride);
-            }
+            // X轴镜像
+            if (axis === 'x') mirror.makeScale(-1, 1, 1);
+            else if (axis === 'y') mirror.makeScale(1, -1, 1);
+            else if (axis === 'z') mirror.makeScale(1, 1, -1);
 
-            mesh.castShadow = true;
-            mesh.receiveShadow = true; // 物体间投影
-            if (previewMesh) {
-                mesh.scale.copy(previewMesh.scale);
-                if (rotationOverride) {
-                    mesh.rotation.copy(rotationOverride);
-                } else {
-                    mesh.rotation.copy(previewMesh.rotation);
-                }
-            }
-            mesh.position.set(x, y, z);
-            scene.add(mesh);
-            placedObjects.push(mesh);
-            updateCounter();
-            if (outlineModeEnabled) addOutlineToMesh(mesh);
-            recordUndo(() => {
-                const idx = placedObjects.indexOf(mesh);
-                if (idx !== -1) placedObjects.splice(idx, 1);
-                scene.remove(mesh);
-                mesh.geometry?.dispose();
-                mesh.material?.dispose();
-                if (outlineLines[idx]) {
-                    scene.remove(outlineLines[idx]);
-                    outlineLines.splice(idx, 1);
-                }
-                updateCounter();
-            });
-            if (autoRandomCheckbox.checked) executeRandom();
-            return mesh;
+            matrix.premultiply(mirror);
+            return matrix;
         }
 
-        function createMeshAt(x,z,y,rotationOverride) {
+        // ====== 放置几何体（支持镜像） ======
+        
+function placeShapeAt(x, z, y, rotationOverride = null) {
+    const geo = SHAPES[currentShapeKey].createGeo();
+
+    // 原始物体
+    const mesh = new THREE.Mesh(geo, createSolidMaterial());
+    mesh.position.set(x, y, z);
+    if (rotationOverride) mesh.rotation.copy(rotationOverride);
+    else if (previewMesh) mesh.rotation.copy(previewMesh.rotation);
+    if (previewMesh) mesh.scale.copy(previewMesh.scale);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.visible = geometryVisible;
+    scene.add(mesh);
+    placedObjects.push(mesh);
+
+    // 镜像物体
+    if (symmetryMode) {
+        const mirroredMesh = new THREE.Mesh(geo, createSolidMaterial());
+        mirroredMesh.position.copy(mesh.position);
+        mirroredMesh.position.x *= -1; // X轴镜像
+        mirroredMesh.scale.copy(mesh.scale);
+        // 镜像旋转（四元数处理）
+        const q = mesh.quaternion.clone();
+        q.y *= -1;
+        q.z *= -1;
+        mirroredMesh.quaternion.copy(q);
+
+        mirroredMesh.castShadow = true;
+        mirroredMesh.receiveShadow = true;
+        mirroredMesh.visible = geometryVisible;
+        scene.add(mirroredMesh);
+        placedObjects.push(mirroredMesh);
+
+        // 撤销镜像物体
+        recordUndo(() => {
+            const idx = placedObjects.indexOf(mirroredMesh);
+            if (idx !== -1) placedObjects.splice(idx, 1);
+            scene.remove(mirroredMesh);
+            mirroredMesh.geometry?.dispose();
+            mirroredMesh.material?.dispose();
+        });
+    }
+
+    // 撤销原物体
+    recordUndo(() => {
+        const idx = placedObjects.indexOf(mesh);
+        if (idx !== -1) placedObjects.splice(idx, 1);
+        scene.remove(mesh);
+        mesh.geometry?.dispose();
+        mesh.material?.dispose();
+    });
+
+    updateCounter();
+    if (outlineModeEnabled) addOutlineToMesh(mesh);
+    if (autoRandomCheckbox.checked) executeRandom();
+
+    return mesh;
+}
+
+
+        function createMeshAt(x, z, y, rotationOverride) {
             const geo = SHAPES[currentShapeKey].createGeo();
             const mesh = new THREE.Mesh(geo, createSolidMaterial());
             mesh.castShadow = true;
@@ -593,14 +630,15 @@
                 if (rotationOverride) mesh.rotation.copy(rotationOverride);
                 else mesh.rotation.copy(previewMesh.rotation);
             }
-            mesh.position.set(x,y,z);
+            mesh.position.set(x, y, z);
+            mesh.visible = geometryVisible;
             scene.add(mesh);
             placedObjects.push(mesh);
             updateCounter();
             recordUndo(() => {
                 const idx = placedObjects.indexOf(mesh);
                 if (idx !== -1) {
-                    placedObjects.splice(idx,1);
+                    placedObjects.splice(idx, 1);
                     scene.remove(mesh);
                     mesh.geometry.dispose();
                     mesh.material.dispose();
