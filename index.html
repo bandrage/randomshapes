@@ -288,6 +288,9 @@
             let draggedObject = null;          // 当前拖拽的物体
             let dragStartPos = new THREE.Vector3(); // 拖拽开始时物体的位置
             let dragStartMouse = new THREE.Vector2(); // 拖拽开始时鼠标屏幕坐标
+
+            let draggedMirrorObject = null;    // 对称物体（如果有）
+            let dragStartMirrorPos = new THREE.Vector3(); // 对称物体起始位置
             
             // 对称模式
             let symmetryMode = false;
@@ -678,19 +681,28 @@
                     const q = mesh.quaternion.clone(); q.y *= -1; q.z *= -1; mirroredMesh.quaternion.copy(q);
                     mirroredMesh.castShadow = true; mirroredMesh.receiveShadow = true; mirroredMesh.visible = true;
                     scene.add(mirroredMesh); placedObjects.push(mirroredMesh);
+                    // 统一撤销：同时删除原物体和镜像物体
                     recordUndo(() => {
-                        const idx = placedObjects.indexOf(mirroredMesh);
-                        if (idx !== -1) placedObjects.splice(idx,1);
+                        // 删除原物体
+                        const idxOrig = placedObjects.indexOf(mesh);
+                        if (idxOrig !== -1) placedObjects.splice(idxOrig, 1);
+                        scene.remove(mesh);
+                        mesh.geometry?.dispose(); mesh.material?.dispose();
+                        // 删除镜像物体
+                        const idxMirr = placedObjects.indexOf(mirroredMesh);
+                        if (idxMirr !== -1) placedObjects.splice(idxMirr, 1);
                         scene.remove(mirroredMesh);
                         mirroredMesh.geometry?.dispose(); mirroredMesh.material?.dispose();
                     });
+                } else {
+                    // 非对称模式，只记录原物体
+                    recordUndo(() => {
+                        const idx = placedObjects.indexOf(mesh);
+                        if (idx !== -1) placedObjects.splice(idx, 1);
+                        scene.remove(mesh);
+                        mesh.geometry?.dispose(); mesh.material?.dispose();
+                    });
                 }
-                recordUndo(() => {
-                    const idx = placedObjects.indexOf(mesh);
-                    if (idx !== -1) placedObjects.splice(idx,1);
-                    scene.remove(mesh);
-                    mesh.geometry?.dispose(); mesh.material?.dispose();
-                });
                 updateCounter();
                 if (outlineModeEnabled) addOutlineToMesh(mesh);
                 if (autoRandomCheckbox.checked) {
@@ -1484,6 +1496,12 @@
                     const newPos = getPlanePointFromMouse(event, draggedObject);
                     if (newPos) {
                         draggedObject.position.copy(newPos);
+                        // 如果有对称物体，同步更新镜像位置
+                        if (draggedMirrorObject && symmetryMode) {
+                            const mirrorPos = newPos.clone();
+                            mirrorPos.x = -mirrorPos.x;
+                            draggedMirrorObject.position.copy(mirrorPos);
+                        }
                         renderer.render(scene, camera);
                     }
                     return;
@@ -1512,21 +1530,36 @@
                     // 新增：中键拖拽物体（仅在非线模式、非管道模式下）
                     else if (event.button === 1) {
                     // 允许管道模式，但禁止正在绘制管道或线模式时拖拽
-                        if (lineDrawingMode || isDrawingPipe) return;
-                        event.preventDefault();
-                        const mouse = new THREE.Vector2();
-                        mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
-                        mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
-                        raycaster.setFromCamera(mouse, camera);
-                        const intersects = raycaster.intersectObjects(placedObjects);
-                        if (intersects.length > 0) {
-                            isDraggingObject = true;
-                            draggedObject = intersects[0].object;
-                            dragStartPos.copy(draggedObject.position);
-                            dragStartMouse.set(event.clientX, event.clientY);
-                            (event.target || renderer.domElement).setPointerCapture(event.pointerId);
+                    if (lineDrawingMode || isDrawingPipe) return;
+                    event.preventDefault();
+                    const mouse = new THREE.Vector2();
+                    mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+                    mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+                    raycaster.setFromCamera(mouse, camera);
+                    const intersects = raycaster.intersectObjects(placedObjects);
+                    if (intersects.length > 0) {
+                        isDraggingObject = true;
+                        draggedObject = intersects[0].object;
+                        dragStartPos.copy(draggedObject.position);
+                        dragStartMouse.set(event.clientX, event.clientY);
+                        
+                        // 查找对称物体（如果对称模式开启且拖拽物体在对称轴的一侧）
+                        if (symmetryMode) {
+                            const symPos = draggedObject.position.clone();
+                            symPos.x = -symPos.x;
+                            draggedMirrorObject = placedObjects.find(other => other !== draggedObject && other.position.distanceTo(symPos) < 0.01);
+                            if (draggedMirrorObject) {
+                                dragStartMirrorPos.copy(draggedMirrorObject.position);
+                            } else {
+                                draggedMirrorObject = null;
+                            }
+                        } else {
+                            draggedMirrorObject = null;
                         }
+                        
+                        (event.target || renderer.domElement).setPointerCapture(event.pointerId);
                     }
+                }
                     return;
                 }
             }
@@ -1535,16 +1568,21 @@
                 if (isDraggingObject && draggedObject) {
                     // 拖拽结束，记录撤销（如果位置改变了）
                     if (!draggedObject.position.equals(dragStartPos)) {
-                        const obj = draggedObject;               // 保存引用
-                        const oldPos = dragStartPos.clone();     // 移动前位置
-                        const newPos = obj.position.clone();     // 移动后位置（可选，用于重做，暂不实现）
+                        const obj = draggedObject;
+                        const oldPos = dragStartPos.clone();
+                        const mirrorObj = draggedMirrorObject;
+                        const oldMirrorPos = dragStartMirrorPos.clone();
                         recordUndo(() => {
                             obj.position.copy(oldPos);
+                            if (mirrorObj && symmetryMode) {
+                                mirrorObj.position.copy(oldMirrorPos);
+                            }
                         });
-                        console.log("移动物体已记录撤销，原位置:", oldPos);
+                        console.log("移动物体已记录撤销（含镜像）");
                     }
                     isDraggingObject = false;
                     draggedObject = null;
+                    draggedMirrorObject = null;
                     (event.target || renderer.domElement).releasePointerCapture(event.pointerId);
                     return;
                 }
@@ -1593,6 +1631,11 @@
                 if (currentMode === 'create' && (event.key === 'x' || event.key === 'X')) {
                     if (isDrawingPipe) resetPipeDrawing();
                     if (isDrawingLine) resetLineDrawing();
+                    if (isDraggingObject) {
+                        isDraggingObject = false;
+                        draggedObject = null;
+                        draggedMirrorObject = null;
+                    }
                     symmetryMode = !symmetryMode;
                     updateSymmetryLine();
                     event.preventDefault();
