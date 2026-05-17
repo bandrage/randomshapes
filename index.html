@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>3D沙盒 | 拖拽生成 | 吸附骨架 | 光影可调 | 导出OBJ</title>
+    <title>3D沙盒 | 修复删除拖拽 | 物体间投影 | 导出OBJ</title>
     <style>
         body {
             margin: 0;
@@ -264,9 +264,9 @@
     <div class="instruction">
         🔹 Tab 切换(普通↔创造) | 空格 切换(普通↔骨架)<br>
         🖱️ 普通: 左键旋转 | 右键平移 | 滚轮缩放 | Q/E 整体升降所有物体<br>
-        ✨ 创造: 左键拖拽连续生成 | 滚轮切形状 | A/D 等比缩放(保持比例) | Q/E 调整高度 | R 随机(勾选)<br>
+        ✨ 创造: 左键拖拽生成 | 右键拖拽删除 | 滚轮切形状 | A/D 等比缩放(保持比例) | Q/E 调整高度 | R 随机 | X(沿x轴对称)<br>
         ✏️ 骨架: 左键画线 | 中键拖拽顶点 | 右键拖拽删除线段<br>
-        ⏪ Ctrl+Z 撤销 | 🗑️ 创造模式: 按住右键拖拽删除<br>
+        ⏪ Ctrl+Z 撤销 | H 显示/隐藏几何体 | CTRL+H 显示/隐藏骨架线<br>
         ✨ 吸附: 勾选即自动吸附 
     </div>
 
@@ -571,7 +571,7 @@ function placeShapeAt(x, z, y, rotationOverride = null) {
     if (previewMesh) mesh.scale.copy(previewMesh.scale);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    mesh.visible = geometryVisible;
+    mesh.visible = true;
     scene.add(mesh);
     placedObjects.push(mesh);
 
@@ -589,7 +589,7 @@ function placeShapeAt(x, z, y, rotationOverride = null) {
 
         mirroredMesh.castShadow = true;
         mirroredMesh.receiveShadow = true;
-        mirroredMesh.visible = geometryVisible;
+        mirroredMesh.visible = true;
         scene.add(mirroredMesh);
         placedObjects.push(mirroredMesh);
 
@@ -631,7 +631,7 @@ function placeShapeAt(x, z, y, rotationOverride = null) {
                 else mesh.rotation.copy(previewMesh.rotation);
             }
             mesh.position.set(x, y, z);
-            mesh.visible = geometryVisible;
+            mesh.visible = true;
             scene.add(mesh);
             placedObjects.push(mesh);
             updateCounter();
@@ -1674,6 +1674,16 @@ function placeShapeAt(x, z, y, rotationOverride = null) {
         }
         
         function onKeyDown(event) {
+            // 新增快捷键 H / Ctrl+H
+            if (event.key === 'h' || event.key === 'H') {
+                event.preventDefault();
+                if (event.ctrlKey) {
+                    showLinesBtn.click();
+                } else {
+                    toggleGeometryBtn.click();
+                }
+                return;
+            }
             if (currentMode === 'create' && (event.key === 'x' || event.key === 'X')) {
                 symmetryMode = !symmetryMode;
                 console.log('对称模式', symmetryMode ? '开启' : '关闭');
@@ -1744,8 +1754,8 @@ function placeShapeAt(x, z, y, rotationOverride = null) {
 
             const length = 12; // 参考线长度
             const points = [
-                new THREE.Vector3(-length/2, 0.01, 0),  // 左
-                new THREE.Vector3(length/2, 0.01, 0)    // 右
+                new THREE.Vector3(0, 0.01, -length/2),  // 后 (负Z)
+                new THREE.Vector3(0, 0.01, length/2)    // 前 (正Z)
             ];
             const geometry = new THREE.BufferGeometry().setFromPoints(points);
             const material = new THREE.LineBasicMaterial({ vertexColors: true });
@@ -1804,14 +1814,20 @@ function placeShapeAt(x, z, y, rotationOverride = null) {
         let showLinesState = true;
         // 几何体可见性切换
         const toggleGeometryBtn = document.getElementById('toggleGeometryBtn');
-        let geometryVisible = true;
+        //let geometryVisible = true;
 
         function toggleGeometryVisibility() {
-            geometryVisible = !geometryVisible;
-            placedObjects.forEach(obj => {
-                obj.visible = geometryVisible;
-            });
-            toggleGeometryBtn.innerText = geometryVisible ? '隐藏几何体' : '显示几何体';
+            // 检查当前是否有任何可见的物体
+            const hasVisible = placedObjects.some(obj => obj.visible === true);
+            if (hasVisible) {
+                // 有可见物体 → 全部隐藏
+                placedObjects.forEach(obj => { obj.visible = false; });
+                toggleGeometryBtn.innerText = '显示几何体';
+            } else {
+                // 全部已隐藏 → 全部显示
+                placedObjects.forEach(obj => { obj.visible = true; });
+                toggleGeometryBtn.innerText = '隐藏几何体';
+            }
         }
 
         toggleGeometryBtn.addEventListener('click', toggleGeometryVisibility);
@@ -1877,7 +1893,7 @@ function placeShapeAt(x, z, y, rotationOverride = null) {
         }
         animate();
         
-        console.log("3D沙盒 | 拖拽生成 | 吸附骨架 | 光影可调 | 导出OBJ");
+        console.log("初始化完成 | 修复删除拖拽 | 物体间投影开启 | 支持导出OBJ");
         } // 结束 init
     </script>
 </body>
