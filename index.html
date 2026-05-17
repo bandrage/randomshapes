@@ -1535,21 +1535,13 @@
                 if (isDraggingObject && draggedObject) {
                     // 拖拽结束，记录撤销（如果位置改变了）
                     if (!draggedObject.position.equals(dragStartPos)) {
-                        const finalPos = draggedObject.position.clone();
-                        const startPos = dragStartPos.clone();
+                        const obj = draggedObject;               // 保存引用
+                        const oldPos = dragStartPos.clone();     // 移动前位置
+                        const newPos = obj.position.clone();     // 移动后位置（可选，用于重做，暂不实现）
                         recordUndo(() => {
-                            draggedObject.position.copy(startPos);
+                            obj.position.copy(oldPos);
                         });
-                        // 注意：撤销时不仅需要恢复位置，还需要保证在再次撤销时能恢复 finalPos，但最简单的就是记录一个函数
-                        // 因为 recordUndo 只记录单个函数，这里需要额外处理：我们可以在当前撤销栈中同时记录恢复最终位置的函数
-                        // 但为了简单，我们可以先记录一个恢复最终位置的函数到另一个栈？不，标准做法：recordUndo 应该记录一个执行后能回到当前状态的函数。
-                        // 当前状态是 finalPos，撤销应回到 startPos；而再撤销应回到 finalPos。所以需要记录两个操作。
-                        // 简便方法：在 placeShapeAt 中已经有 recordUndo 会记录物体的添加和删除，但移动物体需要单独的撤销机制。
-                        // 我们直接调用 recordUndo 并传入恢复 startPos 的函数，同时将当前状态作为“重做”信息保存在另一个地方？为了简化，我们直接在 recordUndo 中同时记录撤销和重做函数？但当前 recordUndo 只支持撤销。我们可以改进 recordUndo 支持双向，但为了不破坏现有系统，我们采用另一种方式：在移动结束后，记录一个撤销操作，该操作恢复位置；同时，如果用户再次撤销，我们希望它回到移动后的位置，这需要重做功能。但为了简单，我们不实现重做，只实现撤销（即只能回退一步移动）。用户可以通过再次撤销回到移动前位置，但无法再前进。可接受。
-                        // 我们只记录恢复 startPos 的撤销操作。
-                        recordUndo(() => {
-                            draggedObject.position.copy(startPos);
-                        });
+                        console.log("移动物体已记录撤销，原位置:", oldPos);
                     }
                     isDraggingObject = false;
                     draggedObject = null;
