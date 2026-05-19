@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>3D沙盒 | 创造模式线阵列 | 管道 | 对称 | 导出OBJ</title>
+    <title>3D沙盒 | 创造模式线阵列 | 线 | 对称 | 导出OBJ</title>
     <style>
         body {
             margin: 0;
@@ -30,6 +30,32 @@
         .mode-panel span {
             color: #2c7ab1;
             margin-left: 6px;
+        }
+        /* 右下角模式提示通用样式 */
+        .mode-hint {
+            position: absolute;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(4px);
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            color: #2c3e4e;
+            border: 1px solid rgba(0,0,0,0.1);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+            pointer-events: none;
+            z-index: 20;
+            text-align: right;
+            font-family: monospace;
+        }
+        .mode-hint-normal {
+            bottom: 120px;   /* 位于 instruction 上方 60px */
+        }
+        .mode-hint-placement {
+            bottom: 120px;   /* 位于 instruction 上方 60px */
+        }
+        .mode-hint-array {
+            bottom: 120px;  /* 位于 placement 提示上方 50px */
         }
         .tools-panel {
             position: absolute;
@@ -192,8 +218,18 @@
         <span style="margin-left: 14px;">| 形状: <span id="shapeIndicator">立方体</span></span>
     </div>
     <div class="counter">📦 已放置: <span id="placedCount">0</span></div>
+    <!-- 右下角动态模式提示（根据当前模式显示） -->
+    <div id="normalHintPanel" class="mode-hint mode-hint-array" style="display: none;">
+        Tab切换模式 <br>左键旋转 <br>右键平移 <br>滚轮缩放 <br>Q/E 升降所有物体
+    </div>
+    <div id="placementHintPanel" class="mode-hint mode-hint-placement" style="display: none;">
+        Tab切换模式 <br>左键拖拽生成 <br>中键移动 <br>右键删除 <br>滚轮切形状 <br>A/D缩放 <br>Q/E高度 <br>R随机 <br>X对称 <br>空格阵列
+    </div>
+    <div id="arrayHintPanel" class="mode-hint mode-hint-array" style="display: none;">
+        Tab切换模式 <br>左键拖拽生成 <br>双击确认 <br>右键删除 <br>滚轮切形状 <br>A/D缩放 <br>Q/E间距 <br>R随机 <br>X对称 <br>空格放置
+    </div>
     <div class="instruction">
-        ⏪ Ctrl+Z 撤销 <br>H 显示/隐藏几何体<br>CTRL+H 显示/隐藏线条(线阵列结果)<br>
+        ⏪ Ctrl+Z 撤销<br>delete 一键清空<br>H 显示/隐藏几何体<br>CTRL+H 显示/隐藏线条(线阵列结果)<br>
     </div>
 
     <div class="tools-panel">
@@ -212,24 +248,24 @@
         <label><input type="checkbox" id="randomScaleUniform"> 缩放(等比)</label>
     </div>
 
-    <!-- 管道模式提示面板 -->
+    <!-- 线模式提示面板 -->
     <div id="pipeModePanel" style="display: none; position: absolute; top: 60px; left: 50%; transform: translateX(-50%); background: #ffffff; color: #2c3e4e; padding: 4px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; z-index: 30; pointer-events: none; box-shadow: 0 2px 6px rgba(0,0,0,0.2);">
-        ✏️ 管道: 左键加点 | 双击结束 | A/D 调半径 | R 手动随机（勾选上方）
+        ✏️ 线: 左键加点 | 双击结束 | A/D 调半径 | R 手动随机（勾选上方）
     </div>
 
     <!-- 普通模式提示面板 -->
     <div id="normalModePanel" style="display: none; position: absolute; top: 100px; left: 50%; transform: translateX(-50%); background: #ffffff; color: #2c3e4e; padding: 6px 16px; border-radius: 20px; font-size: 14px; font-weight: bold; z-index: 30; pointer-events: none; box-shadow: 0 2px 6px rgba(0,0,0,0.2);">
-        🖱️ 普通模式 (Tab 进入创造模式 | 左键旋转 | 右键平移 | 滚轮缩放 | Q/E 升降所有物体)
+        🖱️ 普通模式 
     </div>
 
     <!-- 创造模式提示面板 -->
     <!-- 创造模式提示面板 -->
     <div id="createModePanel" style="display: none; position: absolute; top: 100px; left: 50%; transform: translateX(-50%); background: #d4edda; color: #155724; padding: 6px 16px; border-radius: 20px; font-size: 14px; font-weight: bold; z-index: 30; pointer-events: none; box-shadow: 0 2px 6px rgba(0,0,0,0.2); text-align: center;">
-        ✨ 创造模式(放置) (Tab 返回普通模式 | 左键拖拽生成 | 中键拖拽移动 | 右键删除 | 滚轮切形状<br>A/D 缩放 | Q/E 高度 | R 手动随机（勾选上方） | X对称 | 空格 线模式)
+        ✨ 创造模式(放置) 
     </div>
 
-    <div id="lineModePanel" style="display: none; position: absolute; top: 100px; left: 50%; transform: translateX(-50%); background: #ffcc44; color: #2c3e4e; padding: 4px 16px; border-radius: 20px; font-size: 14px; font-weight: bold; z-index: 30; pointer-events: none; box-shadow: 0 2px 6px rgba(0,0,0,0.2);text-align: center;">
-        ✨ 创造模式(线) (Tab 返回普通模式 | 左键拖拽生成 | 双击确认 | 右键删除 | 滚轮切形状<br>A/D 缩放 | Q/E 间距 | R 手动随机（勾选上方） | X对称 | 空格 放置模式)
+    <div id="lineModePanel" style="display: none; position: absolute; top: 100px; left: 50%; transform: translateX(-50%); background: #ffcc44; color: #2c3e4e; padding: 6px 16px; border-radius: 20px; font-size: 14px; font-weight: bold; z-index: 30; pointer-events: none; box-shadow: 0 2px 6px rgba(0,0,0,0.2);text-align: center;">
+        ✨ 创造模式(阵列) 
     </div>
 
     <div class="control-panel">
@@ -260,20 +296,24 @@
         });
         
         function init() {
+            let savedRandomState = null;      // 存储进入线形状前的随机选项状态
+            let lastShapeKey = null;          // 记录上一次的形状，稍后初始化
             let threePreviewTimer = null;   // 用于控制侧边预览物体自动消失的定时器
             let previewLeft = null;      // 左侧额外预览物体
             let previewRight = null;     // 右侧额外预览物体
             let threePreviewActive = false; // 是否显示三物体预览模式
             let previewObjects = [];   // 存储预览的几何体（临时）
             let previewTimer = null;  // 预览定时器
-            // ========== 管道绘制状态 ==========
+            // ========== 线绘制状态 ==========
             let lastSnappedDepth = null;
             let pipeRadius = 0.1;
             let isDrawingPipe = false;
             let pipePoints = [];
+            let pointSpheres = [];      // 新增：存储每个点对应的球体对象，与 pipePoints 同步
             let pipeTempLine = null;
             let pipeSegments = [];
             let pipeLastClickTime = 0;
+            let sketchEditingState = null;     // 中键编辑顶点状态
             
             // ========== 线阵列状态 ==========
             let lineDrawingMode = false;       // 是否处于线阵列子模式
@@ -300,6 +340,55 @@
 
             function recordUndo(undoFunc) { undoStack.push(undoFunc); if (undoStack.length > 50) undoStack.shift(); }
             function undo() { if (undoStack.length === 0) return; const undoFunc = undoStack.pop(); undoFunc(); }
+            function clearAllObjectsAndLines() {
+            // 保存当前所有物体和线的引用（浅拷贝）
+            const savedPlaced = [...placedObjects];
+            const savedPipeSegments = [...pipeSegments];
+            const savedDrawnLines = [...drawnLines];
+            
+            if (savedPlaced.length === 0 && savedPipeSegments.length === 0) return;
+
+            // 从场景中移除所有物体（不释放几何体材质，以便撤销恢复）
+            for (const obj of savedPlaced) scene.remove(obj);
+            for (const obj of savedPipeSegments) scene.remove(obj);
+            for (const obj of savedDrawnLines) scene.remove(obj);
+
+            // 清空全局数组及辅助变量
+            placedObjects.length = 0;
+            pipeSegments.length = 0;
+            drawnLines.length = 0;
+            pointSpheres = [];
+            pipePoints = [];
+            linePoints = [];
+            outlineLines.length = 0;
+
+            updateCounter();   // 更新显示计数
+
+            // 记录撤销操作，以便 Ctrl+Z 恢复
+            recordUndo(() => {
+                // 恢复几何体
+                for (const obj of savedPlaced) {
+                    scene.add(obj);
+                    placedObjects.push(obj);
+                }
+                // 恢复线段/端点球体等
+                for (const obj of savedPipeSegments) {
+                    scene.add(obj);
+                    pipeSegments.push(obj);
+                }
+                for (const obj of savedDrawnLines) {
+                    scene.add(obj);
+                    drawnLines.push(obj);
+                }
+                updateCounter();
+                // 如果轮廓线模式开启，重新为几何体添加轮廓线
+                if (outlineModeEnabled) {
+                    for (const obj of savedPlaced) {
+                        addOutlineToMesh(obj);
+                    }
+                }
+            });
+        }
 
             // ========== 场景初始化 ==========
             const scene = new THREE.Scene();
@@ -529,18 +618,18 @@
                 previewRight.rotation.copy(previewMesh.rotation);
             }
             // 几何体定义
-            function createPipe(start, end, radius = 0.2, segments = 32) {
-                const dir = new THREE.Vector3().subVectors(end, start);
-                const length = dir.length();
-                const geom = new THREE.CylinderGeometry(radius, radius, length, segments);
-                const mesh = new THREE.Mesh(geom, new THREE.MeshStandardMaterial({ color: 0x0077ff }));
-                const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
-                mesh.position.copy(mid);
-                mesh.lookAt(end);
-                mesh.rotateX(Math.PI / 2);
-                mesh.userData.customParams = { type: 'pipe', radius, start: start.clone(), end: end.clone(), segments };
-                return mesh;
-            }
+            // function createPipe(start, end, radius = 0.2, segments = 32) {
+            //     const dir = new THREE.Vector3().subVectors(end, start);
+            //     const length = dir.length();
+            //     const geom = new THREE.CylinderGeometry(radius, radius, length, segments);
+            //     const mesh = new THREE.Mesh(geom, new THREE.MeshStandardMaterial({ color: 0x0077ff }));
+            //     const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+            //     mesh.position.copy(mid);
+            //     mesh.lookAt(end);
+            //     mesh.rotateX(Math.PI / 2);
+            //     mesh.userData.customParams = { type: 'pipe', radius, start: start.clone(), end: end.clone(), segments };
+            //     return mesh;
+            // }
             function createCapsuleGeo(r = 0.4, h = 0.3, radialSeg = 24, heightSeg = 12) {
                 const halfCyl = h / 2;
                 const geometry = new THREE.BufferGeometry();
@@ -615,18 +704,33 @@
                 tetrahedron: { name: '四面体', createGeo: () => new THREE.TetrahedronGeometry(0.6) },
                 truncatedCone: { name: '圆台', createGeo: () => new THREE.CylinderGeometry(0.25, 0.55, 0.9, 32) },
                 capsule: { name: '胶囊', createGeo: () => createCapsuleGeo(0.4, 0.3, 24, 12) },
-                pipe: { name: '管道', createGeo: () => new THREE.CylinderGeometry(pipeRadius, pipeRadius, 0.9, 16) }
+                pipe: { name: '线', createGeo: () => new THREE.CylinderGeometry(pipeRadius, pipeRadius, 0.9, 16) }
             };
-            const shapeKeys = Object.keys(SHAPES);
+            const fullShapeKeys = Object.keys(SHAPES);
+            const arrayShapeKeys = fullShapeKeys.filter(key => key !== 'pipe');
             let currentShapeIndex = 0;
-            let currentShapeKey = shapeKeys[0];
+            let currentShapeKey = fullShapeKeys[0];
+            lastShapeKey = currentShapeKey;   // 确保初始值正确 
             let previewMesh = null;
             function updatePreviewMesh(resetScale = true, resetRotation = true) {
-                const newGeo = SHAPES[currentShapeKey].createGeo();
+                let newGeo;
+                let newMat;
+                if (currentShapeKey === 'pipe') {
+                    // 线形状预览：黄色小球
+                    newGeo = new THREE.SphereGeometry(0.1, 16, 16);
+                    newMat = new THREE.MeshStandardMaterial({ color: 0xffaa44, transparent: true, opacity: 0.7 });
+                } else {
+                    // 其他形状：正常几何体 + 半透明蓝色材质（克隆避免共享）
+                    newGeo = SHAPES[currentShapeKey].createGeo();
+                    newMat = PREVIEW_MATERIAL.clone();
+                }
                 if (previewMesh) {
                     const oldGeo = previewMesh.geometry;
+                    const oldMat = previewMesh.material;
                     previewMesh.geometry = newGeo;
+                    previewMesh.material = newMat;
                     if (oldGeo) oldGeo.dispose();
+                    if (oldMat && oldMat !== PREVIEW_MATERIAL) oldMat.dispose();
                     if (resetScale) {
                         previewMesh.scale.set(1, 1, 1);
                         userBaseScale.set(1, 1, 1);
@@ -634,7 +738,7 @@
                     delete previewMesh.userData?.customParams;
                     if (resetRotation) previewMesh.rotation.set(0, 0, 0);
                 } else {
-                    previewMesh = new THREE.Mesh(newGeo, PREVIEW_MATERIAL.clone());
+                    previewMesh = new THREE.Mesh(newGeo, newMat);
                     previewMesh.castShadow = false;
                     scene.add(previewMesh);
                     if (resetScale) {
@@ -646,13 +750,18 @@
                 previewMesh.visible = false;
                 customHeight = null;
                 if (previewMesh.userData) delete previewMesh.userData.customParams;
+                // 确保圆台拥有默认的自定义参数
+                if (currentShapeKey === 'truncatedCone' && previewMesh && !previewMesh.userData.customParams) {
+                    previewMesh.userData.customParams = { type: 'truncatedCone', radiusTop: 0.25, radiusBottom: 0.55, height: 0.9 };
+                }
             }
             function alignToGround(mesh) { mesh.updateMatrixWorld(); const box = new THREE.Box3().setFromObject(mesh); const offset = -box.min.y; mesh.position.y += offset; }
             let placedObjects = [];
             let outlineLines = [];
             function updateCounter() { document.getElementById('placedCount').innerText = placedObjects.length; }
 
-            function placeShapeAt(x, z, y, rotationOverride = null) {
+            function placeShapeAt(x, z, y, rotationOverride = null, skipUndo = false) {
+                // 1. 创建几何体（根据当前形状或自定义参数）
                 let geo;
                 if (previewMesh && previewMesh.userData && previewMesh.userData.customParams) {
                     const params = previewMesh.userData.customParams;
@@ -661,59 +770,85 @@
                         case 'cone': geo = new THREE.ConeGeometry(params.radiusBottom, params.height, 32); break;
                         case 'truncatedCone': geo = new THREE.CylinderGeometry(params.radiusTop, params.radiusBottom, params.height, 32); break;
                         case 'capsule': geo = createCapsuleGeo(params.radius, params.cylinderHeight, 24, 12); break;
-                        case 'pipe': geo = createPipe(params.start, params.end, params.radius, params.segments).geometry; break;
                         default: geo = SHAPES[currentShapeKey].createGeo();
                     }
                 } else {
                     geo = SHAPES[currentShapeKey].createGeo();
                 }
+
+                // 2. 创建网格，应用材质、位置、旋转、缩放
                 const mesh = new THREE.Mesh(geo, createSolidMaterial());
                 mesh.position.set(x, y, z);
-                if (rotationOverride) mesh.rotation.copy(rotationOverride);
-                else if (previewMesh) mesh.rotation.copy(previewMesh.rotation);
-                if (previewMesh) mesh.scale.copy(previewMesh.scale);
-                mesh.castShadow = true; mesh.receiveShadow = true; mesh.visible = true;
-                scene.add(mesh); placedObjects.push(mesh);
-                if (symmetryMode) {
-                    const mirroredMesh = new THREE.Mesh(geo, createSolidMaterial());
-                    mirroredMesh.position.copy(mesh.position); mirroredMesh.position.x *= -1;
-                    mirroredMesh.scale.copy(mesh.scale);
-                    const q = mesh.quaternion.clone(); q.y *= -1; q.z *= -1; mirroredMesh.quaternion.copy(q);
-                    mirroredMesh.castShadow = true; mirroredMesh.receiveShadow = true; mirroredMesh.visible = true;
-                    scene.add(mirroredMesh); placedObjects.push(mirroredMesh);
-                    // 统一撤销：同时删除原物体和镜像物体
-                    recordUndo(() => {
-                        // 删除原物体
-                        const idxOrig = placedObjects.indexOf(mesh);
-                        if (idxOrig !== -1) placedObjects.splice(idxOrig, 1);
-                        scene.remove(mesh);
-                        mesh.geometry?.dispose(); mesh.material?.dispose();
-                        // 删除镜像物体
-                        const idxMirr = placedObjects.indexOf(mirroredMesh);
-                        if (idxMirr !== -1) placedObjects.splice(idxMirr, 1);
-                        scene.remove(mirroredMesh);
-                        mirroredMesh.geometry?.dispose(); mirroredMesh.material?.dispose();
-                    });
-                } else {
-                    // 非对称模式，只记录原物体
-                    recordUndo(() => {
-                        const idx = placedObjects.indexOf(mesh);
-                        if (idx !== -1) placedObjects.splice(idx, 1);
-                        scene.remove(mesh);
-                        mesh.geometry?.dispose(); mesh.material?.dispose();
-                    });
+                if (rotationOverride) {
+                    mesh.rotation.copy(rotationOverride);
+                } else if (previewMesh) {
+                    mesh.rotation.copy(previewMesh.rotation);
                 }
+                if (previewMesh) {
+                    mesh.scale.copy(previewMesh.scale);
+                }
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                mesh.visible = true;
+                scene.add(mesh);
+                placedObjects.push(mesh);
+
+                // 3. 对称模式处理
+                let mirroredMesh = null;
+                if (symmetryMode) {
+                    mirroredMesh = new THREE.Mesh(geo, createSolidMaterial());
+                    mirroredMesh.position.copy(mesh.position);
+                    mirroredMesh.position.x *= -1;
+                    mirroredMesh.scale.copy(mesh.scale);
+                    const q = mesh.quaternion.clone();
+                    q.y *= -1;
+                    q.z *= -1;
+                    mirroredMesh.quaternion.copy(q);
+                    mirroredMesh.castShadow = true;
+                    mirroredMesh.receiveShadow = true;
+                    mirroredMesh.visible = true;
+                    scene.add(mirroredMesh);
+                    placedObjects.push(mirroredMesh);
+                    mirroredMesh.userData.mirrorOf = mesh;
+                    mesh.userData.mirrorOf = mirroredMesh;
+                }
+
+                // 4. 撤销记录（仅在非批量模式下记录）
+                if (!skipUndo) {
+                    if (symmetryMode) {
+                        recordUndo(() => {
+                            const idxOrig = placedObjects.indexOf(mesh);
+                            if (idxOrig !== -1) placedObjects.splice(idxOrig, 1);
+                            scene.remove(mesh);
+                            mesh.geometry?.dispose();
+                            mesh.material?.dispose();
+                            const idxMirr = placedObjects.indexOf(mirroredMesh);
+                            if (idxMirr !== -1) placedObjects.splice(idxMirr, 1);
+                            scene.remove(mirroredMesh);
+                            mirroredMesh.geometry?.dispose();
+                            mirroredMesh.material?.dispose();
+                        });
+                    } else {
+                        recordUndo(() => {
+                            const idx = placedObjects.indexOf(mesh);
+                            if (idx !== -1) placedObjects.splice(idx, 1);
+                            scene.remove(mesh);
+                            mesh.geometry?.dispose();
+                            mesh.material?.dispose();
+                        });
+                    }
+                }
+
                 updateCounter();
                 if (outlineModeEnabled) addOutlineToMesh(mesh);
-                if (autoRandomCheckbox.checked) {
-                    // 管道模式：只有勾选了“缩放(等比)”才执行随机
+                if (autoRandomCheckbox.checked && !skipUndo) {
                     if (currentShapeKey === 'pipe') {
                         if (chkScaleUniform.checked) executeRandom();
                     } else {
                         executeRandom();
                     }
                 }
-                return mesh;
+                return { mesh, mirroredMesh };
             }
 
             let outlineModeEnabled = false;
@@ -777,7 +912,12 @@
                 if (maxVal > maxS) { let ratio = maxS / maxVal; newX *= ratio; newY *= ratio; newZ *= ratio; }
                 if (minVal < minS) { let ratio = minS / minVal; newX *= ratio; newY *= ratio; newZ *= ratio; }
                 previewMesh.scale.set(newX,newY,newZ);
-                userBaseScale.copy(previewMesh.scale);
+                
+                // ✅ 正确：等比更新 userBaseScale，保持各轴相等
+                let newBase = userBaseScale.x * factor;
+                newBase = Math.min(maxS, Math.max(minS, newBase));
+                userBaseScale.set(newBase, newBase, newBase);
+                
                 if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
             }
 
@@ -801,13 +941,15 @@
                     if (previewMesh) { const newGeo = new THREE.CylinderGeometry(pipeRadius, pipeRadius, 0.9, 16); const oldGeo = previewMesh.geometry; previewMesh.geometry = newGeo; if (oldGeo) oldGeo.dispose(); }
                     return;
                 }
-                const factor = 0.4 + Math.random() * 1.2;
-                let newX = previewMesh.scale.x * factor, newY = previewMesh.scale.y * factor, newZ = previewMesh.scale.z * factor;
+                // 等比随机：基于当前 scale 各轴相等
+                const base = previewMesh.scale.x;   // 当前等比值
+                const factor = 0.4 + Math.random() * 1.2;   // 随机比例 0.4~1.6
+                let newVal = base * factor;
                 const minS = 0.3, maxS = 2.5;
-                let maxVal = Math.max(newX,newY,newZ), minVal = Math.min(newX,newY,newZ);
-                if (maxVal > maxS) { let ratio = maxS / maxVal; newX *= ratio; newY *= ratio; newZ *= ratio; }
-                if (minVal < minS) { let ratio = minS / minVal; newX *= ratio; newY *= ratio; newZ *= ratio; }
-                previewMesh.scale.set(newX,newY,newZ);
+                newVal = Math.min(maxS, Math.max(minS, newVal));
+                previewMesh.scale.set(newVal, newVal, newVal);
+                // 同步 userBaseScale（用于后续其他随机）
+                userBaseScale.set(newVal, newVal, newVal);
                 if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
             }
             function randomRotatePreview() {
@@ -822,113 +964,152 @@
                 }
             }
             function randomNonUniformScale() {
-    if (!previewMesh) return;
-    if (!chkScaleNon.checked) return;
+                if (!previewMesh) return;
+                if (!chkScaleNon.checked) return;
 
-    // 锁定 XY 轴缩放
-    if (chkScaleLockXY.checked) {
-        const factorXZ = 0.2 + Math.random() * 1.3;
-        const factorY = 0.2 + Math.random() * 1.3;
-        const sx = Math.min(4.5, Math.max(0.05, userBaseScale.x * factorXZ));
-        const sy = Math.min(4.5, Math.max(0.05, userBaseScale.y * factorY));
-        const sz = Math.min(4.5, Math.max(0.05, userBaseScale.z * factorXZ));
-        previewMesh.scale.set(sx, sy, sz);
-        if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-        console.log(`锁定XY轴不等比随机: scale (${sx.toFixed(2)}, ${sy.toFixed(2)}, ${sz.toFixed(2)})`);
-        return;
-    }
+                const currentKey = currentShapeKey;
 
-    const currentKey = currentShapeKey;
+                // 圆台：直接随机几何参数（半径、高度），不改变 scale
+                if (currentKey === 'truncatedCone') {
+                    // 获取当前圆台的参数（如果不存在则使用默认值）
+                    let currentTopR = 0.25, currentBottomR = 0.55, currentH = 0.9;
+                    if (previewMesh.userData.customParams && previewMesh.userData.customParams.type === 'truncatedCone') {
+                        currentTopR = previewMesh.userData.customParams.radiusTop;
+                        currentBottomR = previewMesh.userData.customParams.radiusBottom;
+                        currentH = previewMesh.userData.customParams.height;
+                    }
+                    let newTopR, newBottomR, newH;
+                    if (chkScaleLockXY.checked) {
+                        // 水平等比：上下底半径乘以相同因子，高度独立随机
+                        const factorXY = 0.5 + Math.random() * 1.2;
+                        const factorY = 0.5 + Math.random() * 1.2;
+                        newTopR = currentTopR * factorXY;
+                        newBottomR = currentBottomR * factorXY;
+                        newH = currentH * factorY;
+                        // 限制范围
+                        newTopR = Math.min(1.2, Math.max(0.1, newTopR));
+                        newBottomR = Math.min(1.2, Math.max(0.1, newBottomR));
+                        newH = Math.min(2.0, Math.max(0.4, newH));
+                    } else {
+                        // 完全独立随机（基于当前值）
+                        const factorTop = 0.5 + Math.random() * 1.2;
+                        const factorBottom = 0.5 + Math.random() * 1.2;
+                        const factorH = 0.5 + Math.random() * 1.2;
+                        newTopR = currentTopR * factorTop;
+                        newBottomR = currentBottomR * factorBottom;
+                        newH = currentH * factorH;
+                        newTopR = Math.min(1.2, Math.max(0.1, newTopR));
+                        newBottomR = Math.min(1.2, Math.max(0.1, newBottomR));
+                        newH = Math.min(2.0, Math.max(0.4, newH));
+                    }
+                    const newGeo = new THREE.CylinderGeometry(newTopR, newBottomR, newH, 32);
+                    const oldGeo = previewMesh.geometry;
+                    previewMesh.geometry = newGeo;
+                    if (oldGeo) oldGeo.dispose();
+                    previewMesh.userData.customParams = { type: 'truncatedCone', radiusTop: newTopR, radiusBottom: newBottomR, height: newH };
+                    if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
+                    console.log(`圆台随机: 上半径=${newTopR.toFixed(2)}, 下半径=${newBottomR.toFixed(2)}, 高度=${newH.toFixed(2)}, 水平等比=${chkScaleLockXY.checked}`);
+                    return;
+                }
 
-    // ------------------------------
-    // 圆台处理：只随机上半径/下半径/高度
-    // ------------------------------
-    if (currentKey === 'truncatedCone') {
-        const topR = 0.2 + Math.random() * 0.7;
-        const bottomR = 0.2 + Math.random() * 0.9;
-        const h = 0.5 + Math.random() * 1.2;
-        const newGeo = new THREE.CylinderGeometry(topR, bottomR, h, 32);
-        const oldGeo = previewMesh.geometry;
-        previewMesh.geometry = newGeo;
-        if (oldGeo) oldGeo.dispose();
-        // 不修改 scale
-        previewMesh.userData.customParams = { type: 'truncatedCone', radiusTop: topR, radiusBottom: bottomR, height: h };
-        if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-        console.log(`圆台随机: 上半径=${topR.toFixed(2)}, 下半径=${bottomR.toFixed(2)}, 高度=${h.toFixed(2)}`);
-        return;
-    }
+                // 圆柱、圆锥：随机几何参数（半径、高度），同时 scale 基于当前基础值随机（不等比）
+                if (currentKey === 'cylinder') {
+                    const rad = 0.3 + Math.random() * 0.8;
+                    const h = 0.5 + Math.random() * 1.2;
+                    const newGeo = new THREE.CylinderGeometry(rad, rad, h, 32);
+                    const oldGeo = previewMesh.geometry;
+                    previewMesh.geometry = newGeo;
+                    if (oldGeo) oldGeo.dispose();
+                    previewMesh.userData.customParams = { type: 'cylinder', radiusTop: rad, radiusBottom: rad, height: h };
+                    // scale 基于 userBaseScale 随机
+                    const factorX = 0.5 + Math.random() * 1.2;
+                    const factorY = 0.5 + Math.random() * 1.2;
+                    const factorZ = 0.5 + Math.random() * 1.2;
+                    let sx = userBaseScale.x * factorX;
+                    let sy = userBaseScale.y * factorY;
+                    let sz = userBaseScale.z * factorZ;
+                    const minS = 0.05, maxS = 4.5;
+                    sx = Math.min(maxS, Math.max(minS, sx));
+                    sy = Math.min(maxS, Math.max(minS, sy));
+                    sz = Math.min(maxS, Math.max(minS, sz));
+                    previewMesh.scale.set(sx, sy, sz);
+                    if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
+                    console.log(`圆柱随机: 半径=${rad.toFixed(2)}, 高度=${h.toFixed(2)}, scale=(${sx.toFixed(2)},${sy.toFixed(2)},${sz.toFixed(2)})`);
+                    return;
+                }
 
-    // ------------------------------
-    // 圆柱/圆锥/胶囊处理
-    // ------------------------------
-    let newGeo, params, sx, sy, sz;
+                if (currentKey === 'cone') {
+                    const bottomRad = 0.4 + Math.random() * 0.8;
+                    const h = 0.6 + Math.random() * 1.2;
+                    const newGeo = new THREE.ConeGeometry(bottomRad, h, 32);
+                    const oldGeo = previewMesh.geometry;
+                    previewMesh.geometry = newGeo;
+                    if (oldGeo) oldGeo.dispose();
+                    previewMesh.userData.customParams = { type: 'cone', radiusBottom: bottomRad, height: h };
+                    const factorX = 0.5 + Math.random() * 1.2;
+                    const factorY = 0.5 + Math.random() * 1.2;
+                    const factorZ = 0.5 + Math.random() * 1.2;
+                    let sx = userBaseScale.x * factorX;
+                    let sy = userBaseScale.y * factorY;
+                    let sz = userBaseScale.z * factorZ;
+                    const minS = 0.05, maxS = 4.5;
+                    sx = Math.min(maxS, Math.max(minS, sx));
+                    sy = Math.min(maxS, Math.max(minS, sy));
+                    sz = Math.min(maxS, Math.max(minS, sz));
+                    previewMesh.scale.set(sx, sy, sz);
+                    if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
+                    console.log(`圆锥随机: 底半径=${bottomRad.toFixed(2)}, 高度=${h.toFixed(2)}, scale=(${sx.toFixed(2)},${sy.toFixed(2)},${sz.toFixed(2)})`);
+                    return;
+                }
 
-    if (currentKey === 'cylinder') {
-        const rad = 0.3 + Math.random() * 0.8;
-        const h = 0.5 + Math.random() * 1.2;
-        newGeo = new THREE.CylinderGeometry(rad, rad, h, 32);
-        params = { type: 'cylinder', radiusTop: rad, radiusBottom: rad, height: h };
-        sx = 0.2 + Math.random() * 1.3;
-        sy = 0.2 + Math.random() * 1.3;
-        sz = 0.2 + Math.random() * 1.3;
-    } else if (currentKey === 'cone') {
-        const bottomRad = 0.4 + Math.random() * 0.8;
-        const h = 0.6 + Math.random() * 1.2;
-        newGeo = new THREE.ConeGeometry(bottomRad, h, 32);
-        params = { type: 'cone', radiusBottom: bottomRad, height: h };
-        sx = 0.2 + Math.random() * 1.3;
-        sy = 0.2 + Math.random() * 1.3;
-        sz = 0.2 + Math.random() * 1.3;
-    } else if (currentKey === 'capsule') {
-        const r = 0.3 + Math.random() * 0.6;
-        const cylH = 0.2 + Math.random() * 0.8;
-        newGeo = createCapsuleGeo(r, cylH, 24, 12);
-        params = { type: 'capsule', radius: r, cylinderHeight: cylH };
-        sx = 0.2 + Math.random() * 1.3;   // 胶囊水平随机
-        sy = 0.2 + Math.random() * 1.3;   // 胶囊垂直随机
-        sz = 0.2 + Math.random() * 1.3;   // 胶囊水平随机
-    }
+                if (currentKey === 'capsule') {
+                    // 胶囊随机：基于当前 scale 随机
+                    const factorX = 0.5 + Math.random() * 1.2;
+                    const factorY = 0.5 + Math.random() * 1.2;
+                    const factorZ = 0.5 + Math.random() * 1.2;
+                    let sx = userBaseScale.x * factorX;
+                    let sy = userBaseScale.y * factorY;
+                    let sz = userBaseScale.z * factorZ;
+                    const minS = 0.1, maxS = 4.5;
+                    sx = Math.min(maxS, Math.max(minS, sx));
+                    sy = Math.min(maxS, Math.max(minS, sy));
+                    sz = Math.min(maxS, Math.max(minS, sz));
+                    previewMesh.scale.set(sx, sy, sz);
+                    if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
+                    console.log(`胶囊随机缩放: (${sx.toFixed(2)}, ${sy.toFixed(2)}, ${sz.toFixed(2)})`);
+                    return;
+                }
 
-    // ------------------------------
-    // 替换几何体并应用随机缩放
-    // ------------------------------
-    if (newGeo) {
-        const oldGeo = previewMesh.geometry;
-        previewMesh.geometry = newGeo;
-        if (oldGeo) oldGeo.dispose();
+                // 其他几何体（立方体、球体、圆环等）：仅对 scale 进行基于当前值的随机（不等比）
+                // 支持“锁定 XY 轴”功能
+                if (chkScaleLockXY.checked) {
+                    const factorXZ = 0.5 + Math.random() * 1.2;
+                    const factorY = 0.5 + Math.random() * 1.2;
+                    let sx = userBaseScale.x * factorXZ;
+                    let sy = userBaseScale.y * factorY;
+                    let sz = userBaseScale.z * factorXZ;
+                    const minS = 0.05, maxS = 4.5;
+                    sx = Math.min(maxS, Math.max(minS, sx));
+                    sy = Math.min(maxS, Math.max(minS, sy));
+                    sz = Math.min(maxS, Math.max(minS, sz));
+                    previewMesh.scale.set(sx, sy, sz);
+                    if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
+                    console.log(`锁定XY轴不等比随机: scale (${sx.toFixed(2)}, ${sy.toFixed(2)}, ${sz.toFixed(2)})`);
+                    return;
+                }
 
-        if (currentKey === 'capsule' || currentKey === 'cylinder' || currentKey === 'cone') {
-            // 非圆台的形状：不等比随机缩放
-            const minS = 0.05, maxS = 4.5;
-            sx = Math.min(maxS, Math.max(minS, sx));
-            sy = Math.min(maxS, Math.max(minS, sy));
-            sz = Math.min(maxS, Math.max(minS, sz));
-            previewMesh.scale.set(sx, sy, sz);
-            userBaseScale.copy(previewMesh.scale);
-        }
-
-        previewMesh.userData.customParams = params;
-
-        if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-        console.log(`${currentKey} 随机:`, params, currentKey !== 'truncatedCone' ? `scale=(${sx.toFixed(2)},${sy.toFixed(2)},${sz.toFixed(2)})` : '');
-    }
-
-    // ------------------------------
-    // 其他几何体：XYZ独立随机缩放
-    // ------------------------------
-    if (!['truncatedCone','cylinder','cone','capsule'].includes(currentKey)) {
-        let sx2 = userBaseScale.x * (0.2 + Math.random() * 1.3);
-        let sy2 = userBaseScale.y * (0.2 + Math.random() * 1.3);
-        let sz2 = userBaseScale.z * (0.2 + Math.random() * 1.3);
-        const minS = 0.05, maxS = 4.5;
-        sx2 = Math.min(maxS, Math.max(minS, sx2));
-        sy2 = Math.min(maxS, Math.max(minS, sy2));
-        sz2 = Math.min(maxS, Math.max(minS, sz2));
-        previewMesh.scale.set(sx2, sy2, sz2);
-        if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-        console.log(`非圆柱类不等比随机: (${sx2.toFixed(2)}, ${sy2.toFixed(2)}, ${sz2.toFixed(2)})`);
-    }
-}
+                // 完全独立三轴随机
+                let sx = userBaseScale.x * (0.5 + Math.random() * 1.2);
+                let sy = userBaseScale.y * (0.5 + Math.random() * 1.2);
+                let sz = userBaseScale.z * (0.5 + Math.random() * 1.2);
+                const minS = 0.05, maxS = 4.5;
+                sx = Math.min(maxS, Math.max(minS, sx));
+                sy = Math.min(maxS, Math.max(minS, sy));
+                sz = Math.min(maxS, Math.max(minS, sz));
+                previewMesh.scale.set(sx, sy, sz);
+                if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
+                console.log(`不等比随机: (${sx.toFixed(2)}, ${sy.toFixed(2)}, ${sz.toFixed(2)})`);
+            }
             function executeRandom() {
                 if (chkRotate.checked) randomRotatePreview();
                 if (chkScaleNon.checked) randomNonUniformScale();
@@ -937,15 +1118,56 @@
 
             // 删除物体
             function deleteObject(obj) {
+                // 对称模式：如果物体有镜像伙伴，一起删除
+                let mirrorObj = null;
+                if (symmetryMode && obj.userData && obj.userData.mirrorOf) {
+                    mirrorObj = obj.userData.mirrorOf;
+                    // 确保镜像还在场景中
+                    if (!placedObjects.includes(mirrorObj)) mirrorObj = null;
+                    else {
+                        // 切断相互引用，避免递归
+                        obj.userData.mirrorOf = null;
+                        mirrorObj.userData.mirrorOf = null;
+                    }
+                }
+                
                 let idx = placedObjects.indexOf(obj);
                 if (idx !== -1) {
                     placedObjects.splice(idx,1);
                     scene.remove(obj);
                     obj.geometry?.dispose(); obj.material?.dispose();
+                    
+                    let mirrorIdx = -1;
+                    if (mirrorObj) {
+                        mirrorIdx = placedObjects.indexOf(mirrorObj);
+                        if (mirrorIdx !== -1) {
+                            placedObjects.splice(mirrorIdx,1);
+                            scene.remove(mirrorObj);
+                            mirrorObj.geometry?.dispose(); mirrorObj.material?.dispose();
+                        }
+                    }
                     updateCounter();
-                    recordUndo(() => { scene.add(obj); placedObjects.push(obj); updateCounter(); if (outlineModeEnabled) addOutlineToMesh(obj); });
+                    
+                    // 记录一个撤销函数，同时恢复原物体和镜像物体
+                    recordUndo(() => {
+                        scene.add(obj);
+                        placedObjects.push(obj);
+                        if (outlineModeEnabled) addOutlineToMesh(obj);
+                        if (mirrorObj) {
+                            scene.add(mirrorObj);
+                            placedObjects.push(mirrorObj);
+                            if (outlineModeEnabled) addOutlineToMesh(mirrorObj);
+                        }
+                        updateCounter();
+                        // 恢复相互引用（重要！）
+                        if (mirrorObj) {
+                            obj.userData.mirrorOf = mirrorObj;
+                            mirrorObj.userData.mirrorOf = obj;
+                        }
+                    });
                     return true;
                 }
+                // 线段删除部分保持不变
                 for (let i = 0; i < drawnLines.length; i++) {
                     const line = drawnLines[i];
                     if (line === obj) {
@@ -981,6 +1203,57 @@
                 if (t > 0) return raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(t));
                 return null;
             }
+
+            function findNearestVertex(event) {
+                const mouse = new THREE.Vector2();
+                mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+                mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+                let bestDist = 0.2;
+                let bestObj = null;
+                let bestPoint = null;
+                for (let obj of pipeSegments) {
+                    if (obj.isLine) continue; // 只考虑端点小球
+                    if (obj.geometry.type === 'SphereGeometry') {
+                        const pos = obj.position;
+                        const toPoint = pos.clone().sub(raycaster.ray.origin);
+                        const dot = toPoint.dot(raycaster.ray.direction);
+                        const proj = raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(dot));
+                        const dist = proj.distanceTo(pos);
+                        if (dist < bestDist) {
+                            bestDist = dist;
+                            bestObj = obj;
+                            bestPoint = pos.clone();
+                        }
+                    }
+                }
+                if (bestObj) return { obj: bestObj, point: bestPoint };
+                console.log('[Debug] findNearestVertex 返回:', bestObj ? bestObj.position : null);
+                return null;
+            }
+
+            function updateVertexPosition(sphere, newPos) {
+                sphere.position.copy(newPos);
+                let updated = false;
+                for (let obj of pipeSegments) {
+                    if (obj.isLine && obj.userData.spheres) {
+                        const idx = obj.userData.spheres.indexOf(sphere);
+                        if (idx !== -1) {
+                            const positions = obj.geometry.attributes.position.array;
+                            if (idx === 0) {
+                                positions[0] = newPos.x; positions[1] = newPos.y; positions[2] = newPos.z;
+                            } else if (idx === 1) {
+                                positions[3] = newPos.x; positions[4] = newPos.y; positions[5] = newPos.z;
+                            }
+                            obj.geometry.attributes.position.needsUpdate = true;
+                            updated = true;
+                            // 注意：不要 break，因为同一个球体可能属于多个线段（中间点）
+                        }
+                    }
+                }
+                if (!updated) console.warn("[updateVertexPosition] 未找到包含该球体的线段！");
+            }
+
             function getPointOnCameraPlane(event, distance = 12.0) {
                 const mouse = new THREE.Vector2();
                 mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
@@ -1014,21 +1287,90 @@
             //     return null;
             // }
             function getSnappedSurfacePoint(event) {
+                // 1. 优先检测普通几何体表面
                 const mouse = new THREE.Vector2();
                 mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
                 mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
                 raycaster.setFromCamera(mouse, camera);
-                const intersects = raycaster.intersectObjects(placedObjects);
-                if (intersects.length > 0) return { point: intersects[0].point };
+                let intersects = raycaster.intersectObjects(placedObjects);
+                if (intersects.length > 0) {
+                    return { point: intersects[0].point };
+                }
+
+                let bestPoint = null;
+                let bestScreenDist = 30; // 屏幕像素阈值（可调节）
+
+                for (let obj of pipeSegments) {
+                    if (obj.isLine) {
+                        const positions = obj.geometry.attributes.position.array;
+                        const p1 = new THREE.Vector3(positions[0], positions[1], positions[2]);
+                        const p2 = new THREE.Vector3(positions[3], positions[4], positions[5]);
+
+                        // 将线段两端点投影到屏幕坐标（NDC：-1 到 1）
+                        const p1Screen = p1.clone().project(camera);
+                        const p2Screen = p2.clone().project(camera);
+                        // 鼠标的屏幕坐标（NDC）
+                        const mouseScreen = new THREE.Vector2(
+                            (event.clientX / renderer.domElement.clientWidth) * 2 - 1,
+                            -(event.clientY / renderer.domElement.clientHeight) * 2 + 1
+                        );
+
+                        // 计算鼠标到线段在屏幕上的最短距离（像素）
+                        const ab = new THREE.Vector2().subVectors(p2Screen, p1Screen);
+                        const t = ((mouseScreen.x - p1Screen.x) * ab.x + (mouseScreen.y - p1Screen.y) * ab.y) / (ab.x * ab.x + ab.y * ab.y);
+                        let closestScreen;
+                        if (t < 0) closestScreen = p1Screen;
+                        else if (t > 1) closestScreen = p2Screen;
+                        else closestScreen = p1Screen.clone().add(ab.multiplyScalar(t));
+                        const screenDist = Math.hypot(mouseScreen.x - closestScreen.x, mouseScreen.y - closestScreen.y);
+
+                        if (screenDist < bestScreenDist) {
+                            bestScreenDist = screenDist;
+                            // 计算线段上对应的3D点（根据参数 t 插值）
+                            let t3D = Math.max(0, Math.min(1, t));
+                            const closest3D = p1.clone().lerp(p2, t3D);
+                            bestPoint = closest3D;
+                        }
+                    } else if (obj.geometry && obj.geometry.type === 'SphereGeometry') {
+                        // 端点小球：投影到屏幕，计算距离
+                        const spherePos = obj.position;
+                        const sphereScreen = spherePos.clone().project(camera);
+                        const mouseScreen = new THREE.Vector2(
+                            (event.clientX / renderer.domElement.clientWidth) * 2 - 1,
+                            -(event.clientY / renderer.domElement.clientHeight) * 2 + 1
+                        );
+                        const screenDist = Math.hypot(sphereScreen.x - mouseScreen.x, sphereScreen.y - mouseScreen.y);
+                        if (screenDist < bestScreenDist) {
+                            bestScreenDist = screenDist;
+                            bestPoint = spherePos.clone();
+                        }
+                    }
+                }
+
+                if (bestPoint) {
+                    return { point: bestPoint };
+                }
                 return null;
             }
             function getPipePoint(event) {
                 if (snapToSurfaceCheckbox.checked) {
                     const surface = getSnappedSurfacePoint(event);
                     if (surface) {
-                        const viewDir = camera.getWorldDirection(new THREE.Vector3());
-                        lastSnappedDepth = surface.point.clone().sub(camera.position).dot(viewDir);
-                        return surface.point;
+                        // 计算吸附点的屏幕坐标与鼠标的像素距离
+                        const snapScreen = surface.point.clone().project(camera);
+                        const mouseScreen = new THREE.Vector2(
+                            (event.clientX / renderer.domElement.clientWidth) * 2 - 1,
+                            -(event.clientY / renderer.domElement.clientHeight) * 2 + 1
+                        );
+                        const ndcDist = Math.hypot(snapScreen.x - mouseScreen.x, snapScreen.y - mouseScreen.y);
+                        const pixelDist = ndcDist * Math.min(renderer.domElement.clientWidth, renderer.domElement.clientHeight) / 2;
+                        const PIXEL_THRESHOLD = 30;  // 像素阈值，可自行调整
+                        if (pixelDist <= PIXEL_THRESHOLD) {
+                            const viewDir = camera.getWorldDirection(new THREE.Vector3());
+                            lastSnappedDepth = surface.point.clone().sub(camera.position).dot(viewDir);
+                            return surface.point;
+                        }
+                        // 距离过远：不吸附，走下面的默认逻辑
                     }
                 }
                 let distance = 12.0;
@@ -1060,6 +1402,20 @@
                 return raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(t));
             }
 
+            function getPointOnDepthPlane(event, worldPoint) {
+                const mouse = new THREE.Vector2();
+                mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+                mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+                const planeNormal = camera.getWorldDirection(new THREE.Vector3());
+                const planePoint = worldPoint;
+                const denominator = planeNormal.dot(raycaster.ray.direction);
+                if (Math.abs(denominator) < 0.0001) return null;
+                const t = (planeNormal.dot(planePoint) - planeNormal.dot(raycaster.ray.origin)) / denominator;
+                if (t < 0) return null;
+                return raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(t));
+            }
+
             // UI联动
             const snapToSurfaceCheckbox = document.getElementById('snapToSurfaceCheckbox');
             //const snapToLineCheckbox = document.getElementById('snapToLineCheckbox');
@@ -1079,29 +1435,61 @@
 
             function updateRandomPanelForShape(shapeKey) {
                 const isPipe = (shapeKey === 'pipe');
+                
+                // 检测形状变化：进入线形状时保存状态，离开线形状时恢复状态
+                if (isPipe && lastShapeKey !== 'pipe') {
+                    // 进入线形状，保存当前随机选项状态
+                    savedRandomState = {
+                        randomRotate: chkRotate.checked,
+                        randomRotateLock90: chkRotateLock90.checked,
+                        randomScaleNon: chkScaleNon.checked,
+                        randomScaleLockXY: chkScaleLockXY.checked,
+                        randomScaleUniform: chkScaleUniform.checked,
+                        autoRandom: autoRandomCheckbox.checked
+                    };
+                } else if (!isPipe && lastShapeKey === 'pipe' && savedRandomState) {
+                    // 离开线形状，恢复保存的状态
+                    chkRotate.checked = savedRandomState.randomRotate;
+                    chkRotateLock90.checked = savedRandomState.randomRotateLock90;
+                    chkScaleNon.checked = savedRandomState.randomScaleNon;
+                    chkScaleLockXY.checked = savedRandomState.randomScaleLockXY;
+                    chkScaleUniform.checked = savedRandomState.randomScaleUniform;
+                    autoRandomCheckbox.checked = savedRandomState.autoRandom;
+                    // 恢复子选项的禁用状态
+                    chkRotateLock90.disabled = !chkRotate.checked;
+                    chkScaleLockXY.disabled = !chkScaleNon.checked;
+                    // 注意：保存后保留引用，下次进入线形状时还会重新保存最新状态
+                }
+                // 更新上一次形状记录
+                lastShapeKey = shapeKey;
+                
+                // 以下为原有的禁用/启用逻辑（保持线形状下所有随机选项灰显并清空）
                 const randomRotate = document.getElementById('randomRotate');
                 const randomRotateLock90 = document.getElementById('randomRotateLock90');
                 const randomScaleNon = document.getElementById('randomScaleNonUniform');
                 const randomScaleLockXY = document.getElementById('randomScaleLockXY');
+                const autoRandom = document.getElementById('autoRandomCheckbox');
+                const scaleUniform = document.getElementById('randomScaleUniform');
+
                 randomRotate.disabled = isPipe;
                 randomScaleNon.disabled = isPipe;
+                autoRandom.disabled = isPipe;
+                scaleUniform.disabled = isPipe;
+
                 if (!isPipe) {
                     randomRotateLock90.disabled = !randomRotate.checked;
                     randomScaleLockXY.disabled = !randomScaleNon.checked;
+                    autoRandom.disabled = false;
+                    scaleUniform.disabled = false;
                 } else {
                     randomRotateLock90.disabled = true;
                     randomScaleLockXY.disabled = true;
+                    // 线形状下强制清空所有随机选项的勾选
                     randomRotate.checked = false;
                     randomScaleNon.checked = false;
+                    autoRandom.checked = false;
+                    scaleUniform.checked = false;
                 }
-                //snapToLineCheckbox.disabled = isPipe;
-                // if (isPipe) {
-                //     snapAlignCheckbox.disabled = true;
-                //     snapAlignCheckbox.checked = false;
-                //     snapToLineCheckbox.checked = false;
-                // } else {
-                //     snapAlignCheckbox.disabled = !snapToLineCheckbox.checked;
-                // }
             }
             // snapToLineCheckbox.addEventListener('change', updateAlignCheckboxState);
             // updateAlignCheckboxState();
@@ -1135,35 +1523,143 @@
                 mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
                 mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
                 raycaster.setFromCamera(mouse, camera);
-                const intersects = raycaster.intersectObjects(placedObjects);
+
+                // 1. 优先检测普通几何体（直接射线命中）
+                let intersects = raycaster.intersectObjects(placedObjects);
                 if (intersects.length > 0) {
-                    const obj = intersects[0].object;
-                    if (!createDeletedSet.has(obj)) {
-                        createDeletedSet.add(obj);
-                        if (symmetryMode) {
-                            const symPos = obj.position.clone(); symPos.x = -symPos.x;
-                            const symObj = placedObjects.find(other => other !== obj && other.position.distanceTo(symPos) < 0.01);
-                            if (symObj && !createDeletedSet.has(symObj)) { createDeletedSet.add(symObj); deleteObject(symObj); }
-                        }
-                        deleteObject(obj);
-                        renderer.render(scene, camera);
+                const obj = intersects[0].object;
+                if (!createDeletedSet.has(obj)) {
+                    createDeletedSet.add(obj);
+                    // 对称模式：删除原物体，deleteObject 内部会处理镜像
+                    deleteObject(obj);
+                    // 注意：如果对称模式下，镜像物体也会被 deleteObject 自动删除，
+                    // 但需要将镜像也加入 createDeletedSet 防止重复删除？
+                    // 但由于 deleteObject 会直接删除镜像，此处只需将镜像也加入 set 避免后续二次处理
+                    if (symmetryMode && obj.userData && obj.userData.mirrorOf) {
+                        const mirror = obj.userData.mirrorOf;
+                        if (mirror && !createDeletedSet.has(mirror)) createDeletedSet.add(mirror);
                     }
+                    renderer.render(scene, camera);
+                }
+                return;
+            }
+
+                // 2. 线段和端点小球：基于屏幕像素距离删除
+                let bestObj = null;
+                let bestPixelDist = 20; // 像素阈值（鼠标距离线段/小球投影小于此值即删除）
+
+                for (let obj of pipeSegments) {
+                    if (obj.isLine) {
+                        const positions = obj.geometry.attributes.position.array;
+                        const p1 = new THREE.Vector3(positions[0], positions[1], positions[2]);
+                        const p2 = new THREE.Vector3(positions[3], positions[4], positions[5]);
+
+                        // 投影到屏幕空间（NDC: -1..1）
+                        const p1Screen = p1.clone().project(camera);
+                        const p2Screen = p2.clone().project(camera);
+                        const mouseScreen = new THREE.Vector2(mouse.x, mouse.y);
+
+                        // 计算线段投影上离鼠标最近的点
+                        const ab = new THREE.Vector2().subVectors(p2Screen, p1Screen);
+                        const t = ((mouseScreen.x - p1Screen.x) * ab.x + (mouseScreen.y - p1Screen.y) * ab.y) / (ab.x * ab.x + ab.y * ab.y);
+                        let closestScreen;
+                        if (t < 0) closestScreen = p1Screen;
+                        else if (t > 1) closestScreen = p2Screen;
+                        else closestScreen = p1Screen.clone().add(ab.multiplyScalar(t));
+
+                        // 计算 NDC 距离，转换为像素距离
+                        const ndcDist = Math.hypot(mouseScreen.x - closestScreen.x, mouseScreen.y - closestScreen.y);
+                        const pixelDist = ndcDist * Math.min(renderer.domElement.clientWidth, renderer.domElement.clientHeight) / 2;
+                        if (pixelDist < bestPixelDist) {
+                            bestPixelDist = pixelDist;
+                            bestObj = obj;
+                        }
+                    } else if (obj.geometry && obj.geometry.type === 'SphereGeometry') {
+                        // 端点小球
+                        const sphereScreen = obj.position.clone().project(camera);
+                        const mouseScreen = new THREE.Vector2(mouse.x, mouse.y);
+                        const ndcDist = Math.hypot(sphereScreen.x - mouseScreen.x, sphereScreen.y - mouseScreen.y);
+                        const pixelDist = ndcDist * Math.min(renderer.domElement.clientWidth, renderer.domElement.clientHeight) / 2;
+                        if (pixelDist < bestPixelDist) {
+                            bestPixelDist = pixelDist;
+                            bestObj = obj;
+                        }
+                    }
+                }
+
+                if (bestObj && !createDeletedSet.has(bestObj)) {
+                    createDeletedSet.add(bestObj);
+                    deleteSketchObject(bestObj);
+                    renderer.render(scene, camera);
+                }
+            }
+            // 获取当前预览物体的世界包围球（考虑缩放、旋转）
+            function getPreviewBoundingSphere() {
+                if (!previewMesh || !previewMesh.visible) return null;
+                const box = new THREE.Box3().setFromObject(previewMesh);
+                const sphere = new THREE.Sphere();
+                box.getBoundingSphere(sphere);
+                return sphere;
+            }
+
+            // 删除所有与预览物体包围球相交的物体（几何体、线段、端点小球）
+            function deleteObjectsIntersectingPreview() {
+            const sphere = getPreviewBoundingSphere();
+            if (!sphere) return;
+
+            // 可选：扩大判定范围，使删除更灵敏（例如 1.2 倍）
+            const radiusScale = 2;   // 可调整，越大越容易删除
+            const detectionRadius = sphere.radius * radiusScale;
+
+            // 1. 删除普通几何体（使用原始球体，不扩大也可，几何体有体积）
+            for (let obj of placedObjects) {
+                if (createDeletedSet.has(obj)) continue;
+                const objBox = new THREE.Box3().setFromObject(obj);
+                if (objBox.intersectsSphere(sphere)) {   // 此处不扩大也可以，几何体足够明显
+                    createDeletedSet.add(obj);
+                    deleteObject(obj);
                 }
             }
 
-            // 管道辅助
-            function createPipeSegmentMesh(p1, p2, radius = pipeRadius) {
-                const dir = new THREE.Vector3().subVectors(p2, p1);
-                const length = dir.length();
-                if (length < 0.001) return null;
-                const cylinderGeo = new THREE.CylinderGeometry(radius, radius, length, 8);
-                const mesh = new THREE.Mesh(cylinderGeo, createSolidMaterial());
-                const center = p1.clone().add(p2).multiplyScalar(0.5);
-                mesh.position.copy(center);
-                mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
-                mesh.castShadow = true; mesh.receiveShadow = true;
-                return mesh;
+            // 2. 删除线段和端点小球（使用扩大的半径，让细线更容易命中）
+            for (let obj of pipeSegments) {
+                if (createDeletedSet.has(obj)) continue;
+                if (obj.isLine) {
+                    const positions = obj.geometry.attributes.position.array;
+                    const p1 = new THREE.Vector3(positions[0], positions[1], positions[2]);
+                    const p2 = new THREE.Vector3(positions[3], positions[4], positions[5]);
+                    // 计算线段上离球心最近的点
+                    const ab = new THREE.Vector3().subVectors(p2, p1);
+                    const t = ((sphere.center.x - p1.x) * ab.x + (sphere.center.y - p1.y) * ab.y + (sphere.center.z - p1.z) * ab.z) / ab.lengthSq();
+                    const tClamped = Math.max(0, Math.min(1, t));
+                    const closest = p1.clone().add(ab.multiplyScalar(tClamped));
+                    const dist = sphere.center.distanceTo(closest);
+                    if (dist <= detectionRadius) {   // 使用扩大后的半径
+                        createDeletedSet.add(obj);
+                        deleteSketchObject(obj);
+                    }
+                } else if (obj.geometry && obj.geometry.type === 'SphereGeometry') {
+                    const dist = sphere.center.distanceTo(obj.position);
+                    if (dist <= detectionRadius) {
+                        createDeletedSet.add(obj);
+                        deleteSketchObject(obj);
+                    }
+                }
             }
+        }
+            // // 线辅助
+            // function createPipeSegmentMesh(p1, p2, radius = pipeRadius) {
+            //     const dir = new THREE.Vector3().subVectors(p2, p1);
+            //     const length = dir.length();
+            //     if (length < 0.001) return null;
+            //     const cylinderGeo = new THREE.CylinderGeometry(radius, radius, length, 8);
+            //     const mesh = new THREE.Mesh(cylinderGeo, createSolidMaterial());
+            //     const center = p1.clone().add(p2).multiplyScalar(0.5);
+            //     mesh.position.copy(center);
+            //     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
+            //     mesh.castShadow = true; mesh.receiveShadow = true;
+            //     return mesh;
+            // }
             function updatePipePreviewLine(start, end) {
                 if (pipeTempLine) scene.remove(pipeTempLine);
                 const points = [start.clone(), end.clone()];
@@ -1171,42 +1667,116 @@
                 pipeTempLine = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: 0xffaa44 }));
                 scene.add(pipeTempLine);
             }
-            function finalizePipe() {
-                if (pipeSegments.length === 0) return;
-                const finalMeshes = [];
-                for (let seg of pipeSegments) {
-                    const newMat = createSolidMaterial();
-                    const finalMesh = new THREE.Mesh(seg.geometry, newMat);
-                    finalMesh.position.copy(seg.position);
-                    finalMesh.quaternion.copy(seg.quaternion);
-                    finalMesh.scale.copy(seg.scale);
-                    finalMesh.castShadow = true; finalMesh.receiveShadow = true;
-                    scene.add(finalMesh);
-                    placedObjects.push(finalMesh);
-                    finalMeshes.push(finalMesh);
-                    scene.remove(seg);
-                    seg.geometry.dispose(); seg.material.dispose();
+            function deleteSketchObject(obj, record = true) {
+    // ---------- 收集原物体及其所有关联 ----------
+    let toDeleteSet = new Set();
+
+    function collect(o) {
+        if (toDeleteSet.has(o)) return;
+        toDeleteSet.add(o);
+        if (o.isLine && o.userData.spheres) {
+            for (let sphere of o.userData.spheres) collect(sphere);
+        } else if (o.geometry && o.geometry.type === 'SphereGeometry') {
+            for (let line of pipeSegments) {
+                if (!line.isLine) continue;
+                if (line.userData.spheres && line.userData.spheres.includes(o)) {
+                    collect(line);
+                } else {
+                    const pos = line.geometry.attributes.position.array;
+                    const p1 = new THREE.Vector3(pos[0], pos[1], pos[2]);
+                    const p2 = new THREE.Vector3(pos[3], pos[4], pos[5]);
+                    if (o.position.distanceTo(p1) < 0.001 || o.position.distanceTo(p2) < 0.001) collect(line);
                 }
-                recordUndo(() => {
-                    for (let mesh of finalMeshes) {
-                        const idx = placedObjects.indexOf(mesh);
-                        if (idx !== -1) placedObjects.splice(idx,1);
-                        scene.remove(mesh);
-                        mesh.geometry.dispose(); mesh.material.dispose();
-                    }
-                    updateCounter();
-                });
-                updateCounter();
-                if (outlineModeEnabled) finalMeshes.forEach(m => addOutlineToMesh(m));
-                pipeSegments = [];
-                pipePoints = [];
-                isDrawingPipe = false;
             }
+        }
+    }
+    collect(obj);
+
+    // ---------- 对称模式：收集镜像侧所有关联 ----------
+    if (symmetryMode) {
+        let mirrorRoot = null;
+        if (obj.userData && obj.userData.mirrorOf) {
+            mirrorRoot = obj.userData.mirrorOf;
+        } else {
+            for (let other of pipeSegments) {
+                if (other === obj) continue;
+                if (obj.isLine && other.isLine) {
+                    const p1 = new THREE.Vector3(obj.geometry.attributes.position.array[0], obj.geometry.attributes.position.array[1], obj.geometry.attributes.position.array[2]);
+                    const p2 = new THREE.Vector3(obj.geometry.attributes.position.array[3], obj.geometry.attributes.position.array[4], obj.geometry.attributes.position.array[5]);
+                    const q1 = new THREE.Vector3(other.geometry.attributes.position.array[0], other.geometry.attributes.position.array[1], other.geometry.attributes.position.array[2]);
+                    const q2 = new THREE.Vector3(other.geometry.attributes.position.array[3], other.geometry.attributes.position.array[4], other.geometry.attributes.position.array[5]);
+                    if (Math.abs(p1.x + q1.x) < 0.01 && Math.abs(p1.y - q1.y) < 0.01 && Math.abs(p1.z - q1.z) < 0.01 &&
+                        Math.abs(p2.x + q2.x) < 0.01 && Math.abs(p2.y - q2.y) < 0.01 && Math.abs(p2.z - q2.z) < 0.01) {
+                        mirrorRoot = other;
+                        break;
+                    }
+                } else if (!obj.isLine && !other.isLine && obj.position && other.position) {
+                    if (Math.abs(obj.position.x + other.position.x) < 0.01 &&
+                        Math.abs(obj.position.y - other.position.y) < 0.01 &&
+                        Math.abs(obj.position.z - other.position.z) < 0.01) {
+                        mirrorRoot = other;
+                        break;
+                    }
+                }
+            }
+        }
+        if (mirrorRoot && pipeSegments.includes(mirrorRoot)) {
+            function collectMirror(o) {
+                if (toDeleteSet.has(o)) return;
+                toDeleteSet.add(o);
+                if (o.isLine && o.userData.spheres) {
+                    for (let sphere of o.userData.spheres) collectMirror(sphere);
+                } else if (o.geometry && o.geometry.type === 'SphereGeometry') {
+                    for (let line of pipeSegments) {
+                        if (!line.isLine) continue;
+                        if (line.userData.spheres && line.userData.spheres.includes(o)) {
+                            collectMirror(line);
+                        } else {
+                            const pos = line.geometry.attributes.position.array;
+                            const p1 = new THREE.Vector3(pos[0], pos[1], pos[2]);
+                            const p2 = new THREE.Vector3(pos[3], pos[4], pos[5]);
+                            if (o.position.distanceTo(p1) < 0.001 || o.position.distanceTo(p2) < 0.001) collectMirror(line);
+                        }
+                    }
+                }
+            }
+            collectMirror(mirrorRoot);
+        }
+    }
+
+    if (toDeleteSet.size === 0) return false;
+
+    const deletedArray = Array.from(toDeleteSet);
+
+    // 从场景和 pipeSegments 中移除（注意：不销毁任何几何体/材质，保留原对象）
+    for (let dObj of deletedArray) {
+        const idx = pipeSegments.indexOf(dObj);
+        if (idx !== -1) pipeSegments.splice(idx, 1);
+        scene.remove(dObj);
+    }
+
+    if (record) {
+        recordUndo(() => {
+            // 直接重新添加原物体（所有 userData 引用保持不变，包括 spheres 和 mirrorOf）
+            for (let dObj of deletedArray) {
+                scene.add(dObj);
+                pipeSegments.push(dObj);
+            }
+            renderer.render(scene, camera);
+        });
+    }
+    return true;
+}
             function resetPipeDrawing() {
                 if (pipeTempLine) { scene.remove(pipeTempLine); pipeTempLine = null; }
-                for (let seg of pipeSegments) { scene.remove(seg); seg.geometry.dispose(); seg.material.dispose(); }
-                pipeSegments = [];
                 pipePoints = [];
+                pointSpheres = [];   // 清空球体记录
+                isDrawingPipe = false;
+            }
+
+            function finalizePipe() {
+                pipePoints = [];
+                pointSpheres = [];   // 清空球体记录
                 isDrawingPipe = false;
             }
 
@@ -1219,6 +1789,7 @@
             }
 
             function updatePreviewPosition(event) {
+                // 1. 线阵列模式中正在画线：隐藏预览物体，只显示临时线段
                 if (lineDrawingMode && isDrawingLine) {
                     if (previewMesh) previewMesh.visible = false;
                     if (linePoints.length > 0) {
@@ -1227,6 +1798,8 @@
                     }
                     return;
                 }
+
+                // 2. 画线模式（pipe）中正在画线：隐藏预览物体，只显示临时线段
                 if (isDrawingPipe) {
                     if (previewMesh) previewMesh.visible = false;
                     if (pipePoints.length > 0) {
@@ -1235,70 +1808,230 @@
                     }
                     return;
                 }
+
+                // 3. 其他情况（包括线阵列模式但未画线，以及普通放置模式）：正常显示预览
                 if (!previewMesh) return;
+
+                // 吸附逻辑（表面吸附），增加屏幕像素距离阈值
                 const enableSurface = snapToSurfaceCheckbox.checked;
-                // const enableLine = snapToLineCheckbox.checked;
-                // const enableAlign = snapAlignCheckbox.checked && enableLine;
                 if (enableSurface) {
                     const surfaceSnap = getSnappedSurfacePoint(event);
-                    if (surfaceSnap) { previewMesh.position.copy(surfaceSnap.point); previewMesh.position.y += 0.02; previewMesh.visible = true; return; }
+                    if (surfaceSnap) {
+                        // 计算吸附点投影到屏幕后的坐标
+                        const snapScreen = surfaceSnap.point.clone().project(camera);
+                        // 鼠标屏幕坐标（NDC: -1 到 1）
+                        const mouseScreen = new THREE.Vector2(
+                            (event.clientX / renderer.domElement.clientWidth) * 2 - 1,
+                            -(event.clientY / renderer.domElement.clientHeight) * 2 + 1
+                        );
+                        // 计算屏幕上的像素距离
+                        const ndcDist = Math.hypot(snapScreen.x - mouseScreen.x, snapScreen.y - mouseScreen.y);
+                        const pixelDist = ndcDist * Math.min(renderer.domElement.clientWidth, renderer.domElement.clientHeight) / 2;
+                        const PIXEL_THRESHOLD = 30;  // 像素阈值，可自行调整（30 表示鼠标距离物体 30 像素以内才吸附）
+                        
+                        if (pixelDist <= PIXEL_THRESHOLD) {
+                            previewMesh.position.copy(surfaceSnap.point);
+                            previewMesh.position.y += 0.02;
+                            previewMesh.visible = true;
+                            return;
+                        }
+                        // 超过阈值：不吸附，继续执行下面的地面/自由放置逻辑
+                    }
                 }
-                // if (enableLine) {
-                //     const lineSnap = getSnappedPositionAndDir(event);
-                //     if (lineSnap) {
-                //         previewMesh.position.copy(lineSnap.point);
-                //         previewMesh.position.y += 0.02;
-                //         if (enableAlign && lineSnap.direction) previewMesh.quaternion.copy(getRotationFromDirection(lineSnap.direction));
-                //         previewMesh.visible = true; return;
-                //     }
-                // }
+
+                // 默认地面跟随
                 const pos = getMouseGroundPosition(event);
                 if (pos) {
-                    previewMesh.position.x = pos.x; previewMesh.position.z = pos.z;
+                    previewMesh.position.x = pos.x;
+                    previewMesh.position.z = pos.z;
                     if (customHeight !== null) previewMesh.position.y = customHeight;
-                    else { previewMesh.position.y = pos.y; alignToGround(previewMesh); previewMesh.position.y += 0.02; }
+                    else {
+                        previewMesh.position.y = pos.y;
+                        alignToGround(previewMesh);
+                        previewMesh.position.y += 0.02;
+                    }
                     previewMesh.visible = true;
-                } else previewMesh.visible = false;
+                } else {
+                    previewMesh.visible = false;
+                }
             }
-
             function onPointerDownCreate(event) {
+                console.log("[onPointerDownCreate] mode:", currentMode, "shape:", currentShapeKey);
+                //let pointSpheres = [];   // 存储每个点对应的球体，与 pipePoints 同步
                 if (currentMode !== 'create') return;
-                // 管道模式
+                // 线模式
                 if (currentShapeKey === 'pipe') {
                     event.preventDefault();
                     (event.target || renderer.domElement).setPointerCapture(event.pointerId);
-                    if (event.button === 2) { if (isDrawingPipe) resetPipeDrawing(); return; }
+                    // if (event.button === 2) {
+                    //     console.log("[右键] 进入右键删除逻辑");
+                    //     event.preventDefault();
+                    //     const mouse = new THREE.Vector2();
+                    //     mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+                    //     mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+                    //     raycaster.setFromCamera(mouse, camera);
+                    //     const intersects = raycaster.intersectObjects(pipeSegments);
+                    //     console.log("[右键] 射线检测命中的物体数量:", intersects.length);
+                    //     if (intersects.length > 0) {
+                    //         console.log("[右键] 命中的物体:", intersects[0].object);
+                    //         deleteSketchObject(intersects[0].object);
+                    //     } else {
+                    //         console.warn("[右键] 未命中任何 pipeSegments 中的物体");
+                    //     }
+                    //     return;
+                    // }
+                    if (event.button === 1) {
+                        event.preventDefault();
+                        const nearest = findNearestVertex(event);
+                        if (nearest) {
+                            // 查找镜像侧顶点（如果存在对称）
+                            let mirrorObj = null;
+                            let mirrorOriginalPos = null;
+                            if (symmetryMode) {
+                                // 优先通过 mirrorOf 引用
+                                if (nearest.obj.userData && nearest.obj.userData.mirrorOf) {
+                                    mirrorObj = nearest.obj.userData.mirrorOf;
+                                    if (mirrorObj) mirrorOriginalPos = mirrorObj.position.clone();
+                                } else {
+                                    // 通过坐标对称性查找
+                                    for (let other of pipeSegments) {
+                                        if (other === nearest.obj) continue;
+                                        if (!other.isLine && other.position && 
+                                            Math.abs(other.position.x + nearest.obj.position.x) < 0.01 &&
+                                            Math.abs(other.position.y - nearest.obj.position.y) < 0.01 &&
+                                            Math.abs(other.position.z - nearest.obj.position.z) < 0.01) {
+                                            mirrorObj = other;
+                                            mirrorOriginalPos = mirrorObj.position.clone();
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            sketchEditingState = {
+                                obj: nearest.obj,
+                                originalPos: nearest.point.clone(),
+                                mirrorObj: mirrorObj,
+                                mirrorOriginalPos: mirrorOriginalPos
+                            };
+                            isDrawingPipe = false;
+                            if (pipeTempLine) scene.remove(pipeTempLine);
+                        }
+                        return;
+                    }
                     if (event.button !== 0) return;
+
                     const now = Date.now();
                     if (isDrawingPipe && pipePoints.length >= 2 && (now - pipeLastClickTime) < 300) {
-                        finalizePipe(); resetPipeDrawing(); pipeLastClickTime = 0; return;
+                        resetPipeDrawing();
+                        pipeLastClickTime = 0;
+                        return;
                     }
+
                     if (!isDrawingPipe) {
                         const startPos = getPipePoint(event);
-                        if (startPos) { isDrawingPipe = true; pipePoints = [startPos]; pipeLastClickTime = now; if (pipeTempLine) { scene.remove(pipeTempLine); pipeTempLine = null; } }
+                        if (startPos) {
+                            isDrawingPipe = true;
+                            pipePoints = [startPos];
+                            // 创建起点球体
+                            const startSphere = new THREE.Mesh(
+                                new THREE.SphereGeometry(0.05, 16, 16),
+                                new THREE.MeshStandardMaterial({ color: 0x44ff44, emissive: 0x226622 })
+                            );
+                            startSphere.position.copy(startPos);
+                            scene.add(startSphere);
+                            pipeSegments.push(startSphere);
+                            pointSpheres = [startSphere];   // 记录球体
+                            pipeLastClickTime = now;
+                            if (pipeTempLine) scene.remove(pipeTempLine);
+                        }
                     } else {
                         const nextPos = getPipePoint(event);
                         if (nextPos) {
                             if (pipePoints.length > 0) {
-                                const lastPoint = pipePoints[pipePoints.length-1];
-                                let segmentRadius = pipeRadius;
-                                if (autoRandomCheckbox.checked && chkScaleUniform.checked) {
-                                    const factor = 0.5 + Math.random() * 2;   
-                                    let newRadius = pipeRadius * factor;
-                                    segmentRadius = Math.min(0.5, Math.max(0.03, newRadius));
+                                // 起点球体 = 上一个点的球体（共享）
+                                const startSphere = pointSpheres[pointSpheres.length - 1];
+                                if (!startSphere) {
+                                    console.error("[画线错误] startSphere 未定义，pointSpheres =", pointSpheres, "pipePoints =", pipePoints);
+                                    return; // 无法继续，退出本次点击
                                 }
-                                const tempSegment = createPipeSegmentMesh(lastPoint, nextPos, segmentRadius);
-                                if (tempSegment) { scene.add(tempSegment); pipeSegments.push(tempSegment); }
+                                // 创建新的终点球体
+                                const endSphere = new THREE.Mesh(
+                                    new THREE.SphereGeometry(0.05, 16, 16),
+                                    new THREE.MeshStandardMaterial({ color: 0x44ff44, emissive: 0x226622 })
+                                );
+                                endSphere.position.copy(nextPos);
+                                scene.add(endSphere);
+                                pipeSegments.push(endSphere);
+                                // 记录新球体
+                                pointSpheres.push(endSphere);
+                                pipePoints.push(nextPos);
+                                
+                                // 生成线段
+                                const lastPointPos = pipePoints[pipePoints.length - 2];
+                                const points = [lastPointPos.clone(), nextPos.clone()];
+                                const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+                                const lineMat = new THREE.LineBasicMaterial({ color: 0xff3333 });
+                                const lineObj = new THREE.Line(lineGeo, lineMat);
+                                lineObj.isLine = true;
+                                scene.add(lineObj);
+                                pipeSegments.push(lineObj);
+                                console.log("[创建线段] pipeSegments 当前包含:", pipeSegments.map(obj => obj.isLine ? "线段" : (obj.geometry?.type || "未知")));
+                                // 记录撤销：删除新添加的线段
+                                recordUndo(() => {
+                                    deleteSketchObject(lineObj, false);  // false 表示不再重复记录
+                                });
+                                // 关联球体到线段
+                                lineObj.userData.spheres = [startSphere, endSphere];
+                                
+                                // 对称模式生成镜像（共享镜像端点）
                                 if (symmetryMode) {
-                                    const lastMirror = lastPoint.clone(); lastMirror.x = -lastMirror.x;
-                                    const nextMirror = nextPos.clone(); nextMirror.x = -nextMirror.x;
-                                    const mirrorSeg = createPipeSegmentMesh(lastMirror, nextMirror, segmentRadius);
-                                    if (mirrorSeg) { scene.add(mirrorSeg); pipeSegments.push(mirrorSeg); }
+                                    // 获取镜像起点球体（应该是 startSphere 的镜像，若不存在则创建）
+                                    let startMirrorSphere = startSphere.userData ? startSphere.userData.mirrorOf : null;
+                                    if (!startMirrorSphere) {
+                                        const lastMirrorPos = lastPointPos.clone(); lastMirrorPos.x = -lastMirrorPos.x;
+                                        startMirrorSphere = new THREE.Mesh(
+                                            new THREE.SphereGeometry(0.05, 16, 16),
+                                            new THREE.MeshStandardMaterial({ color: 0x44ff44, emissive: 0x226622 })
+                                        );
+                                        startMirrorSphere.position.copy(lastMirrorPos);
+                                        scene.add(startMirrorSphere);
+                                        pipeSegments.push(startMirrorSphere);
+                                        if (startSphere) {
+                                            startMirrorSphere.userData.mirrorOf = startSphere;
+                                            startSphere.userData.mirrorOf = startMirrorSphere;
+                                        }
+                                    }
+                                    
+                                    // 创建镜像终点球体
+                                    const nextMirrorPos = nextPos.clone(); nextMirrorPos.x = -nextMirrorPos.x;
+                                    const endMirrorSphere = new THREE.Mesh(
+                                        new THREE.SphereGeometry(0.05, 16, 16),
+                                        new THREE.MeshStandardMaterial({ color: 0x44ff44, emissive: 0x226622 })
+                                    );
+                                    endMirrorSphere.position.copy(nextMirrorPos);
+                                    scene.add(endMirrorSphere);
+                                    pipeSegments.push(endMirrorSphere);
+                                    if (endSphere) {
+                                        endMirrorSphere.userData.mirrorOf = endSphere;
+                                        endSphere.userData.mirrorOf = endMirrorSphere;
+                                    }
+                                    
+                                    // 创建镜像线段
+                                    const mirrorLineGeo = new THREE.BufferGeometry().setFromPoints([startMirrorSphere.position, endMirrorSphere.position]);
+                                    const mirrorLine = new THREE.Line(mirrorLineGeo, lineMat.clone());
+                                    mirrorLine.isLine = true;
+                                    mirrorLine.userData.spheres = [startMirrorSphere, endMirrorSphere];
+                                    scene.add(mirrorLine);
+                                    pipeSegments.push(mirrorLine);
+
+                                    // 建立原始线段与镜像线段的双向引用（关键！）
+                                    lineObj.userData.mirrorOf = mirrorLine;
+                                    mirrorLine.userData.mirrorOf = lineObj;
                                 }
+                                
+                                pipeLastClickTime = now;
+                                if (pipeTempLine) scene.remove(pipeTempLine);
                             }
-                            pipePoints.push(nextPos);
-                            pipeLastClickTime = now;
-                            if (pipeTempLine) { scene.remove(pipeTempLine); pipeTempLine = null; }
                         }
                     }
                     return;
@@ -1340,15 +2073,32 @@
                                     const quat = getRotationFromDirection(dirVec);
                                     rot = new THREE.Euler().setFromQuaternion(quat);
                                 }
+                                
+                                // ---------- 批量生成物体，暂不记录撤销 ----------
+                                const batchCreated = [];   // 存储本次生成的所有物体（包括镜像）
                                 for (let i = 0; i <= steps; i++) {
                                     const t = i / steps;
                                     const pos = start.clone().lerp(end, t);
                                     pos.y += 0.02;
-                                    placeShapeAt(pos.x, pos.z, pos.y, rot);
+                                    const result = placeShapeAt(pos.x, pos.z, pos.y, rot, true); // skipUndo = true
+                                    if (result && result.mesh) batchCreated.push(result.mesh);
+                                    if (result && result.mirroredMesh) batchCreated.push(result.mirroredMesh);
                                 }
+                                // 统一记录一个撤销函数，一次性删除这批物体
+                                recordUndo(() => {
+                                    for (const obj of batchCreated) {
+                                        const idx = placedObjects.indexOf(obj);
+                                        if (idx !== -1) placedObjects.splice(idx, 1);
+                                        scene.remove(obj);
+                                        if (obj.geometry) obj.geometry.dispose();
+                                        if (obj.material) obj.material.dispose();
+                                    }
+                                    updateCounter();
+                                });
+                                // ---------- 批量生成结束 ----------
                             }
                             linePoints.push(nextPos);
-                            clearPreviews();   // 添加这一行
+                            clearPreviews();   // 清除左右预览
                             lineLastClickTime = now;
                             if (lineTempLine) scene.remove(lineTempLine);
                         }
@@ -1400,7 +2150,7 @@
             function setMode(mode) {
                 if (currentMode === 'create' && mode !== 'create') {
                     if (isDrawingPipe) {
-                        // 自动完成管道绘制
+                        // 自动完成线绘制
                         if (pipePoints.length >= 2) finalizePipe();
                         else resetPipeDrawing();
                     }
@@ -1441,6 +2191,25 @@
                 }
                 document.getElementById('shapeIndicator').innerText = SHAPES[currentShapeKey].name;
                 updatePipePanelVisibility();
+                // 控制右下角提示面板
+                    const normalPanel = document.getElementById('normalHintPanel');
+                    const placementPanel = document.getElementById('placementHintPanel');
+                    const arrayPanel = document.getElementById('arrayHintPanel');
+
+                    if (mode === 'normal') {
+                        if (normalPanel) normalPanel.style.display = 'block';
+                        if (placementPanel) placementPanel.style.display = 'none';
+                        if (arrayPanel) arrayPanel.style.display = 'none';
+                    } else if (mode === 'create') {
+                        if (normalPanel) normalPanel.style.display = 'none';
+                        if (lineDrawingMode) {
+                            if (placementPanel) placementPanel.style.display = 'none';
+                            if (arrayPanel) arrayPanel.style.display = 'block';
+                        } else {
+                            if (placementPanel) placementPanel.style.display = 'block';
+                            if (arrayPanel) arrayPanel.style.display = 'none';
+                        }
+                    }
             }
             function onTab() {
                 if (currentMode === 'normal') {
@@ -1472,21 +2241,50 @@
             }
             function onSpace() {
                 if (currentMode !== 'create') return;
-                // 切换线模式
+                if (currentShapeKey === 'pipe') return;
                 if (isDrawingPipe) resetPipeDrawing();
                 if (isDrawingLine) resetLineDrawing();
                 lineDrawingMode = !lineDrawingMode;
-                if (lineDrawingMode) {
-                    if (previewMesh) previewMesh.visible = false;
-                    document.getElementById('lineModePanel').style.display = 'block';
-                    document.getElementById('createModePanel').style.display = 'none';   // 隐藏创造模式面板
-                } else {
-                    if (previewMesh && lastMouseEvent) updatePreviewPosition(lastMouseEvent);
-                    document.getElementById('lineModePanel').style.display = 'none';
-                    document.getElementById('createModePanel').style.display = 'block';   // 显示创造模式面板
-                    clearPreviews();   // 添加这一行
+
+                // 进入阵列模式时，如果当前形状是线，强制切换到第一个可用形状
+                if (lineDrawingMode && currentShapeKey === 'pipe') {
+                    if (arrayShapeKeys.length > 0) {
+                        currentShapeKey = arrayShapeKeys[0];
+                        currentShapeIndex = fullShapeKeys.indexOf(currentShapeKey);
+                        updatePreviewMesh(true, true);
+                        document.getElementById('shapeIndicator').innerText = SHAPES[currentShapeKey].name;
+                        updateRandomPanelForShape(currentShapeKey);
+                        updatePipePanelVisibility();
+                        if (lastMouseEvent) updatePreviewPosition(lastMouseEvent);
+                    }
                 }
 
+                if (lineDrawingMode) {
+                    if (previewMesh) {
+                        previewMesh.visible = false;
+                        if (lastMouseEvent) updatePreviewPosition(lastMouseEvent);
+                    }
+                    document.getElementById('lineModePanel').style.display = 'block';
+                    document.getElementById('createModePanel').style.display = 'none';
+                    // 更新右下角提示面板（阵列模式）
+                    const placementPanel = document.getElementById('placementHintPanel');
+                    const arrayPanel = document.getElementById('arrayHintPanel');
+                    if (placementPanel) placementPanel.style.display = 'none';
+                    if (arrayPanel) arrayPanel.style.display = 'block';
+                } else {
+                    if (previewMesh && lastMouseEvent) {
+                        updatePreviewPosition(lastMouseEvent);
+                        previewMesh.visible = true;
+                    }
+                    document.getElementById('lineModePanel').style.display = 'none';
+                    document.getElementById('createModePanel').style.display = 'block';
+                    clearPreviews();
+                    // 更新右下角提示面板（放置模式）
+                    const placementPanel = document.getElementById('placementHintPanel');
+                    const arrayPanel = document.getElementById('arrayHintPanel');
+                    if (placementPanel) placementPanel.style.display = 'block';
+                    if (arrayPanel) arrayPanel.style.display = 'none';
+                }
             }
             function onPointerMove(event) {
                 if (isUIElement(event.target)) return;
@@ -1508,94 +2306,232 @@
                 }
                 if (currentMode === 'create') {
                     updatePreviewPosition(event);
+                    if (sketchEditingState) {
+                        const newPos = getPointOnDepthPlane(event, sketchEditingState.originalPos);
+                        if (newPos) {
+                            updateVertexPosition(sketchEditingState.obj, newPos);
+                            // 对称模式：同步镜像顶点
+                            if (symmetryMode) {
+                                const mirrorSphere = sketchEditingState.obj.userData.mirrorOf;
+                                if (mirrorSphere) {
+                                    const mirrorPos = newPos.clone();
+                                    mirrorPos.x = -mirrorPos.x;
+                                    updateVertexPosition(mirrorSphere, mirrorPos);
+                                } else {
+                                    console.warn("[对称同步] 当前球体没有 mirrorOf 引用，尝试坐标匹配...");
+                                    // 可选的降级方案：坐标匹配（容差调大）
+                                    const mirrorSphereByPos = pipeSegments.find(obj => {
+                                        if (obj === sketchEditingState.obj) return false;
+                                        if (!obj.position) return false;
+                                        return Math.abs(obj.position.x + sketchEditingState.obj.position.x) < 0.1 &&
+                                            Math.abs(obj.position.y - sketchEditingState.obj.position.y) < 0.1 &&
+                                            Math.abs(obj.position.z - sketchEditingState.obj.position.z) < 0.1;
+                                    });
+                                    if (mirrorSphereByPos) {
+                                        const mirrorPos = newPos.clone();
+                                        mirrorPos.x = -mirrorPos.x;
+                                        updateVertexPosition(mirrorSphereByPos, mirrorPos);
+                                    }
+                                }
+                            }
+                        }
+                        return;
+                    }
                     // 新增：如果线模式且三物体预览激活，同步左右预览位置
                     if (lineDrawingMode && threePreviewActive) {
                         syncThreePreviews();
                     }
                     if (isDragging) onPointerMoveCreate(event);
-                    if (createDeleteDragging) deleteObjectAtMouse(event);
+                    if (createDeleteDragging) {
+                        // 统一使用射线检测：鼠标碰触到就删除
+                        deleteObjectAtMouse(event);
+                    }
                 }
             }
             function onPointerDown(event) {
+                console.log("[pointerdown] button:", event.button, "mode:", currentMode, "shape:", currentShapeKey);
                 if (isUIElement(event.target)) return;
                 if (currentMode === 'create') {
-                    if (event.button === 0) onPointerDownCreate(event);
+                    if (event.button === 0) {
+                        onPointerDownCreate(event);
+                    }
                     else if (event.button === 2) {
                         event.preventDefault();
                         createDeleteDragging = true;
                         createDeletedSet.clear();
                         (event.target || renderer.domElement).setPointerCapture(event.pointerId);
-                        deleteObjectAtMouse(event);
+                        // 不再立即删除，仅启动拖拽删除模式
+                        // 删除操作将在 onPointerMove 中由 deleteObjectsIntersectingPreview 统一处理
                     }
-                    // 新增：中键拖拽物体（仅在非线模式、非管道模式下）
+                    // 中键：优先编辑 pipe 线的顶点，否则拖拽普通几何体
                     else if (event.button === 1) {
-                    // 允许管道模式，但禁止正在绘制管道或线模式时拖拽
-                    if (lineDrawingMode || isDrawingPipe) return;
-                    event.preventDefault();
-                    const mouse = new THREE.Vector2();
-                    mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
-                    mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
-                    raycaster.setFromCamera(mouse, camera);
-                    const intersects = raycaster.intersectObjects(placedObjects);
-                    if (intersects.length > 0) {
-                        isDraggingObject = true;
-                        draggedObject = intersects[0].object;
-                        dragStartPos.copy(draggedObject.position);
-                        dragStartMouse.set(event.clientX, event.clientY);
-                        
-                        // 查找对称物体（如果对称模式开启且拖拽物体在对称轴的一侧）
-                        if (symmetryMode) {
-                            const symPos = draggedObject.position.clone();
-                            symPos.x = -symPos.x;
-                            draggedMirrorObject = placedObjects.find(other => other !== draggedObject && other.position.distanceTo(symPos) < 0.01);
-                            if (draggedMirrorObject) {
-                                dragStartMirrorPos.copy(draggedMirrorObject.position);
+                        event.preventDefault();  // 阻止默认行为（如滚动）
+                        console.log('[Debug] 中键进入 onPointerDown, currentShapeKey =', currentShapeKey);
+
+                        const mouse = new THREE.Vector2();
+                        mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+                        mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+                        raycaster.setFromCamera(mouse, camera);
+
+                        // ---------- 1. 优先检测是否点到 pipe 线的线段或端点球体 ----------
+                        let pipeHit = null;
+                        for (let obj of pipeSegments) {
+                            if (obj.isLine) {
+                                // 线段命中检测（基于屏幕像素距离）
+                                const positions = obj.geometry.attributes.position.array;
+                                const p1 = new THREE.Vector3(positions[0], positions[1], positions[2]);
+                                const p2 = new THREE.Vector3(positions[3], positions[4], positions[5]);
+                                const p1Screen = p1.clone().project(camera);
+                                const p2Screen = p2.clone().project(camera);
+                                const mouseScreen = new THREE.Vector2(mouse.x, mouse.y);
+                                const ab = new THREE.Vector2().subVectors(p2Screen, p1Screen);
+                                const t = ((mouseScreen.x - p1Screen.x) * ab.x + (mouseScreen.y - p1Screen.y) * ab.y) / (ab.x * ab.x + ab.y * ab.y);
+                                let closestScreen;
+                                if (t < 0) closestScreen = p1Screen;
+                                else if (t > 1) closestScreen = p2Screen;
+                                else closestScreen = p1Screen.clone().add(ab.multiplyScalar(t));
+                                const ndcDist = Math.hypot(mouseScreen.x - closestScreen.x, mouseScreen.y - closestScreen.y);
+                                const pixelDist = ndcDist * Math.min(renderer.domElement.clientWidth, renderer.domElement.clientHeight) / 2;
+                                if (pixelDist < 20) {  // 像素阈值
+                                    pipeHit = obj;
+                                    break;
+                                }
+                            } else if (obj.geometry && obj.geometry.type === 'SphereGeometry') {
+                                // 端点球体命中检测
+                                const sphereScreen = obj.position.clone().project(camera);
+                                const mouseScreen = new THREE.Vector2(mouse.x, mouse.y);
+                                const ndcDist = Math.hypot(sphereScreen.x - mouseScreen.x, sphereScreen.y - mouseScreen.y);
+                                const pixelDist = ndcDist * Math.min(renderer.domElement.clientWidth, renderer.domElement.clientHeight) / 2;
+                                if (pixelDist < 20) {
+                                    pipeHit = obj;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (pipeHit) {
+                            // 命中 pipe 线或端点，进入顶点编辑模式
+                            const nearest = findNearestVertex(event);
+                            if (nearest) {
+                                // 查找镜像侧顶点（如果存在对称）
+                                let mirrorObj = null;
+                                let mirrorOriginalPos = null;
+                                if (symmetryMode) {
+                                    // 优先通过 mirrorOf 引用
+                                    if (nearest.obj.userData && nearest.obj.userData.mirrorOf) {
+                                        mirrorObj = nearest.obj.userData.mirrorOf;
+                                        if (mirrorObj) mirrorOriginalPos = mirrorObj.position.clone();
+                                    } else {
+                                        // 通过坐标对称性查找
+                                        for (let other of pipeSegments) {
+                                            if (other === nearest.obj) continue;
+                                            if (!other.isLine && other.position && 
+                                                Math.abs(other.position.x + nearest.obj.position.x) < 0.01 &&
+                                                Math.abs(other.position.y - nearest.obj.position.y) < 0.01 &&
+                                                Math.abs(other.position.z - nearest.obj.position.z) < 0.01) {
+                                                mirrorObj = other;
+                                                mirrorOriginalPos = mirrorObj.position.clone();
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                                sketchEditingState = {
+                                    obj: nearest.obj,
+                                    originalPos: nearest.point.clone(),
+                                    mirrorObj: mirrorObj,
+                                    mirrorOriginalPos: mirrorOriginalPos
+                                };
+                                isDrawingPipe = false;
+                                if (pipeTempLine) scene.remove(pipeTempLine);
+                            }
+                            return;
+                        }
+
+                        // ---------- 2. 未命中 pipe，再检测普通几何体（拖拽物体） ----------
+                        // 禁止在线模式或正在画线时拖拽普通物体
+                        if (lineDrawingMode || isDrawingPipe) return;
+
+                        const intersects = raycaster.intersectObjects(placedObjects);
+                        if (intersects.length > 0) {
+                            isDraggingObject = true;
+                            draggedObject = intersects[0].object;
+                            dragStartPos.copy(draggedObject.position);
+                            dragStartMouse.set(event.clientX, event.clientY);
+                            
+                            if (symmetryMode) {
+                                const symPos = draggedObject.position.clone();
+                                symPos.x = -symPos.x;
+                                draggedMirrorObject = placedObjects.find(other => other !== draggedObject && other.position.distanceTo(symPos) < 0.01);
+                                if (draggedMirrorObject) {
+                                    dragStartMirrorPos.copy(draggedMirrorObject.position);
+                                } else {
+                                    draggedMirrorObject = null;
+                                }
                             } else {
                                 draggedMirrorObject = null;
                             }
-                        } else {
-                            draggedMirrorObject = null;
+                            
+                            (event.target || renderer.domElement).setPointerCapture(event.pointerId);
                         }
-                        
-                        (event.target || renderer.domElement).setPointerCapture(event.pointerId);
                     }
-                }
                     return;
                 }
             }
             function onPointerUp(event) {
-                if (isUIElement(event.target)) return;
-                if (isDraggingObject && draggedObject) {
-                    // 拖拽结束，记录撤销（如果位置改变了）
-                    if (!draggedObject.position.equals(dragStartPos)) {
-                        const obj = draggedObject;
-                        const oldPos = dragStartPos.clone();
-                        const mirrorObj = draggedMirrorObject;
-                        const oldMirrorPos = dragStartMirrorPos.clone();
-                        recordUndo(() => {
-                            obj.position.copy(oldPos);
-                            if (mirrorObj && symmetryMode) {
-                                mirrorObj.position.copy(oldMirrorPos);
-                            }
-                        });
-                        console.log("移动物体已记录撤销（含镜像）");
-                    }
-                    isDraggingObject = false;
-                    draggedObject = null;
-                    draggedMirrorObject = null;
-                    (event.target || renderer.domElement).releasePointerCapture(event.pointerId);
-                    return;
+    // 处理顶点编辑结束（中键拖拽线段端点）
+    if (sketchEditingState) {
+        const { obj, originalPos, mirrorObj, mirrorOriginalPos } = sketchEditingState;
+        if (!obj.position.equals(originalPos)) {
+            recordUndo(() => {
+                // 恢复原侧顶点
+                updateVertexPosition(obj, originalPos);
+                // 恢复镜像侧顶点（如果存在）
+                if (mirrorObj && mirrorOriginalPos) {
+                    updateVertexPosition(mirrorObj, mirrorOriginalPos);
                 }
-                if (currentMode === 'create') {
-                    if (event.button === 0) onPointerUpCreate(event);
-                    else if (event.button === 2) {
-                        createDeleteDragging = false;
-                        createDeletedSet.clear();
-                        (event.target || renderer.domElement).releasePointerCapture(event.pointerId);
-                    }
-                    return;
+            });
+        }
+        sketchEditingState = null;
+        (event.target || renderer.domElement).releasePointerCapture(event.pointerId);
+        return;
+    }
+
+    if (isUIElement(event.target)) return;
+
+    // 处理普通几何体拖拽结束
+    if (isDraggingObject && draggedObject) {
+        if (!draggedObject.position.equals(dragStartPos)) {
+            const obj = draggedObject;
+            const oldPos = dragStartPos.clone();
+            const mirrorObj = draggedMirrorObject;
+            const oldMirrorPos = dragStartMirrorPos.clone();
+            recordUndo(() => {
+                obj.position.copy(oldPos);
+                if (mirrorObj && symmetryMode) {
+                    mirrorObj.position.copy(oldMirrorPos);
                 }
-            }
+            });
+            console.log("移动物体已记录撤销（含镜像）");
+        }
+        isDraggingObject = false;
+        draggedObject = null;
+        draggedMirrorObject = null;
+        (event.target || renderer.domElement).releasePointerCapture(event.pointerId);
+        return;
+    }
+
+    if (currentMode === 'create') {
+        if (event.button === 0) {
+            onPointerUpCreate(event);
+        } else if (event.button === 2) {
+            createDeleteDragging = false;
+            createDeletedSet.clear();
+            (event.target || renderer.domElement).releasePointerCapture(event.pointerId);
+        }
+        return;
+    }
+}
             function onContextMenu(event) {
                 if (currentMode === 'create') event.preventDefault();
                 // 防止中键弹出滚动图标
@@ -1606,9 +2542,22 @@
                     if (isDrawingPipe) resetPipeDrawing();
                     if (isDrawingLine) resetLineDrawing();
                     event.preventDefault();
-                    if (event.deltaY > 0) currentShapeIndex = (currentShapeIndex + 1) % shapeKeys.length;
-                    else currentShapeIndex = (currentShapeIndex - 1 + shapeKeys.length) % shapeKeys.length;
-                    currentShapeKey = shapeKeys[currentShapeIndex];
+
+                    // 根据当前是否为阵列模式，选择形状列表
+                    const activeShapeKeys = lineDrawingMode ? arrayShapeKeys : fullShapeKeys;
+                    if (activeShapeKeys.length === 0) return;
+
+                    let newIndex;
+                    if (event.deltaY > 0) {
+                        newIndex = activeShapeKeys.indexOf(currentShapeKey) + 1;
+                        if (newIndex >= activeShapeKeys.length) newIndex = 0;
+                    } else {
+                        newIndex = activeShapeKeys.indexOf(currentShapeKey) - 1;
+                        if (newIndex < 0) newIndex = activeShapeKeys.length - 1;
+                    }
+                    currentShapeKey = activeShapeKeys[newIndex];
+                    currentShapeIndex = fullShapeKeys.indexOf(currentShapeKey);
+
                     updatePreviewMesh(true, true);
                     customHeight = null;
                     document.getElementById('shapeIndicator').innerText = SHAPES[currentShapeKey].name;
@@ -1641,51 +2590,55 @@
                     event.preventDefault();
                 }
                 if (event.ctrlKey && event.key === 'z') { event.preventDefault(); undo(); return; }
+                if (event.key === 'Delete') {
+                    event.preventDefault();
+                    clearAllObjectsAndLines();
+                    return;
+                }
                 if (event.key === 'Tab') { event.preventDefault(); onTab(); }
                 if (event.key === ' ') { event.preventDefault(); onSpace(); }
                 if (currentMode === 'create') {
-                    if (currentShapeKey === 'pipe') {
-                        // 管道模式：A/D 调半径，Q/E 无效（保持不变）
-                        if (event.key === 'a' || event.key === 'A') {
-                            event.preventDefault();
-                            pipeRadius = Math.max(0.03, pipeRadius - 0.01);
-                            if (previewMesh) { const newGeo = new THREE.CylinderGeometry(pipeRadius, pipeRadius, 0.9, 16); const oldGeo = previewMesh.geometry; previewMesh.geometry = newGeo; if (oldGeo) oldGeo.dispose(); }
-                        } else if (event.key === 'd' || event.key === 'D') {
-                            event.preventDefault();
-                            pipeRadius = Math.min(0.5, pipeRadius + 0.01);
-                            if (previewMesh) { const newGeo = new THREE.CylinderGeometry(pipeRadius, pipeRadius, 0.9, 16); const oldGeo = previewMesh.geometry; previewMesh.geometry = newGeo; if (oldGeo) oldGeo.dispose(); }
-                        } else if (event.key === 'q' || event.key === 'Q' || event.key === 'e' || event.key === 'E') { event.preventDefault(); return; }
-                    } else if (lineDrawingMode) {
-                        // 线阵列模式下：A/D 控制物体缩放（等比缩放），Q/E 控制间距
-                        if (event.key === 'a' || event.key === 'A') {
-                            event.preventDefault();
-                            scalePreviewUniform(-1);
-                            //updateThreePreviews();  // 更新预览物体（因为缩放会影响实际间距）
-                        } else if (event.key === 'd' || event.key === 'D') {
-                            event.preventDefault();
-                            scalePreviewUniform(1);
-                            //updateThreePreviews();
-                        } else if (event.key === 'q' || event.key === 'Q') {
-                            event.preventDefault();
-                            lineSpacing = Math.max(0.3, lineSpacing - 0.05);
-                            console.log(`线阵列间距调整为: ${lineSpacing.toFixed(2)}`);
-                            updateThreePreviews();
-                        } else if (event.key === 'e' || event.key === 'E') {
-                            event.preventDefault();
-                            lineSpacing = Math.min(2.0, lineSpacing + 0.05);
-                            console.log(`线阵列间距调整为: ${lineSpacing.toFixed(2)}`);
-                            updateThreePreviews();
-                        }
-                    } else {
-                        // 普通拖拽生成模式：A/D 等比缩放，Q/E 调整高度
-                        if (event.key === 'a' || event.key === 'A') { event.preventDefault(); scalePreviewUniform(-1); }
-                        if (event.key === 'd' || event.key === 'D') { event.preventDefault(); scalePreviewUniform(1); }
-                        if (event.key === 'q' || event.key === 'Q') { event.preventDefault(); adjustPreviewHeight(1); }
-                        if (event.key === 'e' || event.key === 'E') { event.preventDefault(); adjustPreviewHeight(-1); }
+                if (currentShapeKey === 'pipe') {
+                    // 线形状：禁用所有缩放、高度调整、随机键
+                    if (event.key === 'a' || event.key === 'A' || event.key === 'd' || event.key === 'D' ||
+                        event.key === 'q' || event.key === 'Q' || event.key === 'e' || event.key === 'E' ||
+                        event.key === 'r' || event.key === 'R') {
+                        event.preventDefault();
+                        // 不做任何操作
+                        return;
                     }
-                    if (event.key === 'r' || event.key === 'R') { event.preventDefault(); executeRandom(); }
-
-                } else if (currentMode === 'normal') {
+                } else if (lineDrawingMode) {
+                    // 线阵列模式下：A/D 控制物体缩放（等比缩放），Q/E 控制间距
+                    if (event.key === 'a' || event.key === 'A') {
+                        event.preventDefault();
+                        scalePreviewUniform(-1);
+                    } else if (event.key === 'd' || event.key === 'D') {
+                        event.preventDefault();
+                        scalePreviewUniform(1);
+                    } else if (event.key === 'q' || event.key === 'Q') {
+                        event.preventDefault();
+                        lineSpacing = Math.max(0.3, lineSpacing - 0.05);
+                        console.log(`线阵列间距调整为: ${lineSpacing.toFixed(2)}`);
+                        updateThreePreviews();
+                    } else if (event.key === 'e' || event.key === 'E') {
+                        event.preventDefault();
+                        lineSpacing = Math.min(2.0, lineSpacing + 0.05);
+                        console.log(`线阵列间距调整为: ${lineSpacing.toFixed(2)}`);
+                        updateThreePreviews();
+                    }
+                } else {
+                    // 普通拖拽生成模式：A/D 等比缩放，Q/E 调整高度
+                    if (event.key === 'a' || event.key === 'A') { event.preventDefault(); scalePreviewUniform(-1); }
+                    if (event.key === 'd' || event.key === 'D') { event.preventDefault(); scalePreviewUniform(1); }
+                    if (event.key === 'q' || event.key === 'Q') { event.preventDefault(); adjustPreviewHeight(1); }
+                    if (event.key === 'e' || event.key === 'E') { event.preventDefault(); adjustPreviewHeight(-1); }
+                }
+                // 随机键：仅非线形状时执行
+                if (event.key === 'r' || event.key === 'R') {
+                    event.preventDefault();
+                    if (currentShapeKey !== 'pipe') executeRandom();
+                }
+            } else if (currentMode === 'normal') {
                     if (event.key === 'q' || event.key === 'Q') { event.preventDefault(); moveAllObjectsAndLines(1); }
                     if (event.key === 'e' || event.key === 'E') { event.preventDefault(); moveAllObjectsAndLines(-1); }
                 }
@@ -1739,6 +2692,22 @@
             window.addEventListener('pointerdown', onPointerDown);
             window.addEventListener('pointerup', onPointerUp);
             window.addEventListener('contextmenu', onContextMenu);
+            // 专门处理画线模式下的右键删除（独立于 pointerdown）
+            // window.addEventListener('contextmenu', (event) => {
+            //     if (currentMode === 'create' && currentShapeKey === 'pipe') {
+            //         event.preventDefault();
+            //         // 计算鼠标位置射线
+            //         const mouse = new THREE.Vector2();
+            //         mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+            //         mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+            //         raycaster.setFromCamera(mouse, camera);
+            //         const intersects = raycaster.intersectObjects(pipeSegments);
+            //         console.log('[contextmenu 右键] 命中的物体数量:', intersects.length);
+            //         if (intersects.length > 0) {
+            //             deleteSketchObject(intersects[0].object);
+            //         }
+            //     }
+            // });
             window.addEventListener('wheel', onWheel, { passive: false, capture: true });
             window.addEventListener('keydown', onKeyDown);
             window.addEventListener('mouseleave', () => {
@@ -1752,7 +2721,7 @@
             window.addEventListener('mouseenter', () => { if (currentMode === 'create' && previewMesh && lastMouseEvent) updatePreviewPosition(lastMouseEvent); });
             function animate() { requestAnimationFrame(animate); if (controls.enabled) controls.update(); renderer.render(scene, camera); }
             animate();
-            console.log("初始化完成 | 创造模式线阵列 + 管道 | 对称 | 吸附");
+            console.log("初始化完成 | 创造模式线阵列 + 线 | 对称 | 吸附");
         }
     </script>
 </body>
