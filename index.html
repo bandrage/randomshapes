@@ -2159,26 +2159,71 @@
                                 }
                                 
                                 // ---------- 批量生成物体，暂不记录撤销 ----------
-                                const batchCreated = [];   // 存储本次生成的所有物体（包括镜像）
-                                for (let i = 0; i <= steps; i++) {
-                                    const t = i / steps;
-                                    const pos = start.clone().lerp(end, t);
-                                    pos.y += 0.02;
-                                    const result = placeShapeAt(pos.x, pos.z, pos.y, rot, true); // skipUndo = true
-                                    if (result && result.mesh) batchCreated.push(result.mesh);
-                                    if (result && result.mirroredMesh) batchCreated.push(result.mirroredMesh);
-                                }
-                                // 统一记录一个撤销函数，一次性删除这批物体
-                                recordUndo(() => {
-                                    for (const obj of batchCreated) {
-                                        const idx = placedObjects.indexOf(obj);
-                                        if (idx !== -1) placedObjects.splice(idx, 1);
-                                        scene.remove(obj);
-                                        if (obj.geometry) obj.geometry.dispose();
-                                        if (obj.material) obj.material.dispose();
-                                    }
-                                    updateCounter();
-                                });
+                               // ---------- 批量生成物体，暂不记录撤销 ----------
+const batchCreated = [];
+// 保存当前预览物体的状态（缩放、旋转、几何参数等）
+const savedScale = previewMesh.scale.clone();
+const savedRotation = previewMesh.rotation.clone();
+let savedCustomParams = null;
+if (previewMesh.userData.customParams) {
+    savedCustomParams = JSON.parse(JSON.stringify(previewMesh.userData.customParams));
+}
+
+for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const pos = start.clone().lerp(end, t);
+    pos.y += 0.02;
+    
+    // 如果需要自动随机，对当前预览物体临时随机（但不影响后续物体）
+    if (autoRandomCheckbox.checked && currentShapeKey !== 'pipe') {
+        // 随机缩放/旋转（会修改 previewMesh）
+        if (chkScaleNon.checked) randomNonUniformScale();
+        if (chkScaleUniform.checked) randomUniformScale();
+        if (chkRotate.checked) randomRotatePreview();
+    }
+    
+    const result = placeShapeAt(pos.x, pos.z, pos.y, rot, true); // skipUndo = true
+    if (result && result.mesh) batchCreated.push(result.mesh);
+    if (result && result.mirroredMesh) batchCreated.push(result.mirroredMesh);
+    
+    // 恢复预览物体到原始状态（为下一个物体做准备）
+    previewMesh.scale.copy(savedScale);
+    previewMesh.rotation.copy(savedRotation);
+    if (savedCustomParams) {
+        previewMesh.userData.customParams = JSON.parse(JSON.stringify(savedCustomParams));
+    } else if (previewMesh.userData.customParams) {
+        delete previewMesh.userData.customParams;
+    }
+}
+// 恢复预览物体的几何体（如果随机改变了几何体参数，需要重建）
+// 注意：某些形状（如圆柱、圆锥、圆台）的随机会改变几何体本身，需要完全重置
+if (autoRandomCheckbox.checked && currentShapeKey !== 'pipe') {
+    // 强制根据当前形状重建预览几何体，保持原始状态
+    const oldGeo = previewMesh.geometry;
+    const newGeo = SHAPES[currentShapeKey].createGeo();
+    previewMesh.geometry = newGeo;
+    if (oldGeo) oldGeo.dispose();
+    previewMesh.userData.customParams = null;
+    // 恢复默认缩放和旋转
+    previewMesh.scale.copy(savedScale);
+    previewMesh.rotation.copy(savedRotation);
+    // 如果是圆台，重新设置默认参数
+    if (currentShapeKey === 'truncatedCone') {
+        previewMesh.userData.customParams = { type: 'truncatedCone', radiusTop: 0.25, radiusBottom: 0.55, height: 0.9 };
+    }
+}
+
+// 统一记录一个撤销函数，一次性删除这批物体
+recordUndo(() => {
+    for (const obj of batchCreated) {
+        const idx = placedObjects.indexOf(obj);
+        if (idx !== -1) placedObjects.splice(idx, 1);
+        scene.remove(obj);
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) obj.material.dispose();
+    }
+    updateCounter();
+});
                                 // ---------- 批量生成结束 ----------
                             }
                             linePoints.push(nextPos);
@@ -2709,6 +2754,11 @@
                         lineSpacing = Math.min(2.0, lineSpacing + 0.05);
                         console.log(`线阵列间距调整为: ${lineSpacing.toFixed(2)}`);
                         updateThreePreviews();
+                    }
+                    // 新增：R 键随机
+                    else if (event.key === 'r' || event.key === 'R') {
+                        event.preventDefault();
+                        if (currentShapeKey !== 'pipe') executeRandom();
                     }
                 } else {
                     // 普通拖拽生成模式：A/D 等比缩放，Q/E 调整高度
