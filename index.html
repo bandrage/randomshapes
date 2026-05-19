@@ -971,46 +971,58 @@
 
                 // 圆台：直接随机几何参数（半径、高度），不改变 scale
                 if (currentKey === 'truncatedCone') {
-                    // 获取当前圆台的参数（如果不存在则使用默认值）
-                    let currentTopR = 0.25, currentBottomR = 0.55, currentH = 0.9;
-                    if (previewMesh.userData.customParams && previewMesh.userData.customParams.type === 'truncatedCone') {
-                        currentTopR = previewMesh.userData.customParams.radiusTop;
-                        currentBottomR = previewMesh.userData.customParams.radiusBottom;
-                        currentH = previewMesh.userData.customParams.height;
-                    }
-                    let newTopR, newBottomR, newH;
-                    if (chkScaleLockXY.checked) {
-                        // 水平等比：上下底半径乘以相同因子，高度独立随机
-                        const factorXY = 0.5 + Math.random() * 1.2;
-                        const factorY = 0.5 + Math.random() * 1.2;
-                        newTopR = currentTopR * factorXY;
-                        newBottomR = currentBottomR * factorXY;
-                        newH = currentH * factorY;
-                        // 限制范围
-                        newTopR = Math.min(1.2, Math.max(0.1, newTopR));
-                        newBottomR = Math.min(1.2, Math.max(0.1, newBottomR));
-                        newH = Math.min(2.0, Math.max(0.4, newH));
-                    } else {
-                        // 完全独立随机（基于当前值）
-                        const factorTop = 0.5 + Math.random() * 1.2;
-                        const factorBottom = 0.5 + Math.random() * 1.2;
-                        const factorH = 0.5 + Math.random() * 1.2;
-                        newTopR = currentTopR * factorTop;
-                        newBottomR = currentBottomR * factorBottom;
-                        newH = currentH * factorH;
-                        newTopR = Math.min(1.2, Math.max(0.1, newTopR));
-                        newBottomR = Math.min(1.2, Math.max(0.1, newBottomR));
-                        newH = Math.min(2.0, Math.max(0.4, newH));
-                    }
-                    const newGeo = new THREE.CylinderGeometry(newTopR, newBottomR, newH, 32);
-                    const oldGeo = previewMesh.geometry;
-                    previewMesh.geometry = newGeo;
-                    if (oldGeo) oldGeo.dispose();
-                    previewMesh.userData.customParams = { type: 'truncatedCone', radiusTop: newTopR, radiusBottom: newBottomR, height: newH };
-                    if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-                    console.log(`圆台随机: 上半径=${newTopR.toFixed(2)}, 下半径=${newBottomR.toFixed(2)}, 高度=${newH.toFixed(2)}, 水平等比=${chkScaleLockXY.checked}`);
-                    return;
-                }
+    let currentTopR = 0.25, currentBottomR = 0.55, currentH = 0.9;
+    if (previewMesh.userData.customParams && previewMesh.userData.customParams.type === 'truncatedCone') {
+        currentTopR = previewMesh.userData.customParams.radiusTop;
+        currentBottomR = previewMesh.userData.customParams.radiusBottom;
+        currentH = previewMesh.userData.customParams.height;
+    }
+    let newTopR, newBottomR, newH;
+    if (chkScaleLockXY.checked) {
+        // 水平等比：保持上下底半径的比例不变，整体缩放半径
+        const ratio = currentBottomR / currentTopR;   // 下底 / 上底 比例
+        const factorXY = 0.5 + Math.random() * 1.2;   // 半径缩放因子
+        let rawTopR = currentTopR * factorXY;
+        let rawBottomR = rawTopR * ratio;
+        // 限制半径范围（整体缩放保持比例）
+        const minR = 0.1, maxR = 1.2;
+        if (rawTopR > maxR || rawBottomR > maxR) {
+            const scale = maxR / Math.max(rawTopR, rawBottomR);
+            rawTopR *= scale;
+            rawBottomR *= scale;
+        }
+        if (rawTopR < minR || rawBottomR < minR) {
+            const scale = minR / Math.min(rawTopR, rawBottomR);
+            rawTopR *= scale;
+            rawBottomR *= scale;
+        }
+        newTopR = rawTopR;
+        newBottomR = rawBottomR;
+        // 高度独立随机
+        const factorY = 0.5 + Math.random() * 1.2;
+        newH = currentH * factorY;
+        newH = Math.min(2.0, Math.max(0.4, newH));
+    } else {
+        // 完全独立随机（基于当前值）
+        const factorTop = 0.5 + Math.random() * 1.2;
+        const factorBottom = 0.5 + Math.random() * 1.2;
+        const factorH = 0.5 + Math.random() * 1.2;
+        newTopR = currentTopR * factorTop;
+        newBottomR = currentBottomR * factorBottom;
+        newH = currentH * factorH;
+        newTopR = Math.min(1.2, Math.max(0.1, newTopR));
+        newBottomR = Math.min(1.2, Math.max(0.1, newBottomR));
+        newH = Math.min(2.0, Math.max(0.4, newH));
+    }
+    const newGeo = new THREE.CylinderGeometry(newTopR, newBottomR, newH, 32);
+    const oldGeo = previewMesh.geometry;
+    previewMesh.geometry = newGeo;
+    if (oldGeo) oldGeo.dispose();
+    previewMesh.userData.customParams = { type: 'truncatedCone', radiusTop: newTopR, radiusBottom: newBottomR, height: newH };
+    if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
+    console.log(`圆台随机: 上半径=${newTopR.toFixed(2)}, 下半径=${newBottomR.toFixed(2)}, 高度=${newH.toFixed(2)}, 水平等比=${chkScaleLockXY.checked}`);
+    return;
+}
 
                 // 圆柱、圆锥：随机几何参数（半径、高度），同时 scale 基于当前基础值随机（不等比）
                 if (currentKey === 'cylinder') {
@@ -1182,14 +1194,54 @@
             }
 
             function moveAllObjectsAndLines(deltaY) {
-                const step = deltaY > 0 ? 0.1 : -0.1;
-                placedObjects.forEach(obj => obj.position.y += step);
-                drawnLines.forEach(line => {
-                    const positions = line.geometry.attributes.position.array;
-                    for (let i = 1; i < positions.length; i += 3) positions[i] += step;
-                    line.geometry.attributes.position.needsUpdate = true;
-                });
-            }
+    const step = deltaY > 0 ? 0.1 : -0.1;
+
+    // 1. 移动普通几何体
+    placedObjects.forEach(obj => obj.position.y += step);
+
+    // 2. 移动骨架线（drawnLines）
+    drawnLines.forEach(line => {
+        const positions = line.geometry.attributes.position.array;
+        for (let i = 1; i < positions.length; i += 3) positions[i] += step;
+        line.geometry.attributes.position.needsUpdate = true;
+    });
+
+    // 3. 移动管道线（pipeSegments）中的线段和端点球体，并更新内部坐标数组
+    for (let obj of pipeSegments) {
+        if (obj.isLine) {
+            const positions = obj.geometry.attributes.position.array;
+            for (let i = 1; i < positions.length; i += 3) positions[i] += step;
+            obj.geometry.attributes.position.needsUpdate = true;
+        } else if (obj.geometry && obj.geometry.type === 'SphereGeometry') {
+            obj.position.y += step;
+        }
+    }
+
+    // 4. 同步 pipePoints 和 pointSpheres 中的 Y 坐标（供后续画线使用）
+    for (let i = 0; i < pipePoints.length; i++) {
+        pipePoints[i].y += step;
+    }
+    for (let i = 0; i < pointSpheres.length; i++) {
+        if (pointSpheres[i]) pointSpheres[i].position.y += step;
+    }
+
+    // 5. 同步线阵列模式下的 linePoints（如果有）
+    for (let i = 0; i < linePoints.length; i++) {
+        linePoints[i].y += step;
+    }
+
+    // 6. 如果有当前正在绘制的临时线段，也要更新其预览位置（可选，提升体验）
+    if (pipeTempLine) {
+        const positions = pipeTempLine.geometry.attributes.position.array;
+        for (let i = 1; i < positions.length; i += 3) positions[i] += step;
+        pipeTempLine.geometry.attributes.position.needsUpdate = true;
+    }
+    if (lineTempLine) {
+        const positions = lineTempLine.geometry.attributes.position.array;
+        for (let i = 1; i < positions.length; i += 3) positions[i] += step;
+        lineTempLine.geometry.attributes.position.needsUpdate = true;
+    }
+}
 
             // 射线和吸附
             const raycaster = new THREE.Raycaster();
