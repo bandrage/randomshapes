@@ -335,6 +335,8 @@
             // 对称模式
             let symmetryMode = false;
             let userBaseScale = new THREE.Vector3(1, 1, 1);
+            let baseScaleNonUniform = new THREE.Vector3(1, 1, 1);   // 仅用于不等比随机，只由 A/D 更新
+            let shapeRatio = new THREE.Vector3(1, 1, 1);   // 记录当前形状的轴间比例（不等比随机的结果）
             let symmetryLine = null;
             let undoStack = [];
 
@@ -732,9 +734,11 @@
                     if (oldGeo) oldGeo.dispose();
                     if (oldMat && oldMat !== PREVIEW_MATERIAL) oldMat.dispose();
                     if (resetScale) {
-                        previewMesh.scale.set(1, 1, 1);
-                        userBaseScale.set(1, 1, 1);
-                    }
+    previewMesh.scale.set(1, 1, 1);
+    userBaseScale.set(1, 1, 1);
+    baseScaleNonUniform.set(1, 1, 1);
+    shapeRatio.set(1, 1, 1);
+}
                     delete previewMesh.userData?.customParams;
                     if (resetRotation) previewMesh.rotation.set(0, 0, 0);
                 } else {
@@ -904,22 +908,38 @@
 
             // 缩放等辅助函数
             function scalePreviewUniform(step) {
-                if (!previewMesh) return;
-                const factor = step > 0 ? 1.05 : 0.95;
-                let newX = previewMesh.scale.x * factor, newY = previewMesh.scale.y * factor, newZ = previewMesh.scale.z * factor;
-                const minS = 0.05, maxS = 4.5;
-                let maxVal = Math.max(newX,newY,newZ), minVal = Math.min(newX,newY,newZ);
-                if (maxVal > maxS) { let ratio = maxS / maxVal; newX *= ratio; newY *= ratio; newZ *= ratio; }
-                if (minVal < minS) { let ratio = minS / minVal; newX *= ratio; newY *= ratio; newZ *= ratio; }
-                previewMesh.scale.set(newX,newY,newZ);
-                
-                // ✅ 正确：等比更新 userBaseScale，保持各轴相等
-                let newBase = userBaseScale.x * factor;
-                newBase = Math.min(maxS, Math.max(minS, newBase));
-                userBaseScale.set(newBase, newBase, newBase);
-                
-                if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-            }
+    if (!previewMesh) return;
+    const factor = step > 0 ? 1.05 : 0.95;
+    // 只修改基础缩放（正几何体的大小）
+    let newBaseX = baseScaleNonUniform.x * factor;
+    let newBaseY = baseScaleNonUniform.y * factor;
+    let newBaseZ = baseScaleNonUniform.z * factor;
+    const minS = 0.05, maxS = 4.5;
+    let maxVal = Math.max(newBaseX, newBaseY, newBaseZ);
+    let minVal = Math.min(newBaseX, newBaseY, newBaseZ);
+    if (maxVal > maxS) {
+        let ratio = maxS / maxVal;
+        newBaseX *= ratio;
+        newBaseY *= ratio;
+        newBaseZ *= ratio;
+    }
+    if (minVal < minS) {
+        let ratio = minS / minVal;
+        newBaseX *= ratio;
+        newBaseY *= ratio;
+        newBaseZ *= ratio;
+    }
+    baseScaleNonUniform.set(newBaseX, newBaseY, newBaseZ);
+    // 根据新的基础缩放和当前形状比例，重新计算预览物体缩放
+    previewMesh.scale.set(
+        baseScaleNonUniform.x * shapeRatio.x,
+        baseScaleNonUniform.y * shapeRatio.y,
+        baseScaleNonUniform.z * shapeRatio.z
+    );
+    // 同步 userBaseScale（供等比随机使用）
+    userBaseScale.copy(previewMesh.scale);
+    if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
+}
 
             // 随机选项
             const chkRotate = document.getElementById('randomRotate');
@@ -929,29 +949,76 @@
             const chkScaleUniform = document.getElementById('randomScaleUniform');
             const autoRandomCheckbox = document.getElementById('autoRandomCheckbox');
             chkRotate.addEventListener('change', () => { chkRotateLock90.disabled = !chkRotate.checked; if (!chkRotate.checked) chkRotateLock90.checked = false; });
-            chkScaleNon.addEventListener('change', () => { chkScaleLockXY.disabled = !chkScaleNon.checked; if (!chkScaleNon.checked) chkScaleLockXY.checked = false; });
+            chkScaleNon.addEventListener('change', () => {
+    chkScaleLockXY.disabled = !chkScaleNon.checked;
+    if (!chkScaleNon.checked) chkScaleLockXY.checked = false;
+    // 互斥：如果勾选了不等比，则取消勾选等比（但不禁用）
+    if (chkScaleNon.checked) {
+        chkScaleUniform.checked = false;
+    }
+});
+        chkScaleUniform.addEventListener('change', () => {
+    // 互斥：如果勾选了等比，则取消勾选不等比（但不禁用）
+    if (chkScaleUniform.checked) {
+        chkScaleNon.checked = false;
+        // 不等比被取消时，也要禁用它的子选项“水平等比”
+        chkScaleLockXY.checked = false;
+        chkScaleLockXY.disabled = true;
+    } else {
+        // 当等比取消勾选时，恢复不等比子选项的启用状态（由不等比自身勾选状态决定）
+        chkScaleLockXY.disabled = !chkScaleNon.checked;
+        if (chkScaleNon.checked) {
+            chkScaleLockXY.disabled = false;
+        }
+    }
+});
             function randomUniformScale() {
-                if (!previewMesh) return;
-                if (currentShapeKey === 'pipe') {
-                    const factor = 0.5 + Math.random() * 1.5;
-                    let newRadius = pipeRadius * factor;
-                    newRadius = Math.min(0.5, Math.max(0.03, newRadius));
-                    if (Math.abs(newRadius - pipeRadius) < 0.001) return;
-                    pipeRadius = newRadius;
-                    if (previewMesh) { const newGeo = new THREE.CylinderGeometry(pipeRadius, pipeRadius, 0.9, 16); const oldGeo = previewMesh.geometry; previewMesh.geometry = newGeo; if (oldGeo) oldGeo.dispose(); }
-                    return;
-                }
-                // 等比随机：基于当前 scale 各轴相等
-                const base = previewMesh.scale.x;   // 当前等比值
-                const factor = 0.4 + Math.random() * 1.2;   // 随机比例 0.4~1.6
-                let newVal = base * factor;
-                const minS = 0.3, maxS = 2.5;
-                newVal = Math.min(maxS, Math.max(minS, newVal));
-                previewMesh.scale.set(newVal, newVal, newVal);
-                // 同步 userBaseScale（用于后续其他随机）
-                userBaseScale.set(newVal, newVal, newVal);
-                if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-            }
+    if (!previewMesh) return;
+    if (currentShapeKey === 'pipe') {
+        const factor = 0.5 + Math.random() * 1.5;
+        let newRadius = pipeRadius * factor;
+        newRadius = Math.min(0.5, Math.max(0.03, newRadius));
+        if (Math.abs(newRadius - pipeRadius) < 0.001) return;
+        pipeRadius = newRadius;
+        if (previewMesh) {
+            const newGeo = new THREE.CylinderGeometry(pipeRadius, pipeRadius, 0.9, 16);
+            const oldGeo = previewMesh.geometry;
+            previewMesh.geometry = newGeo;
+            if (oldGeo) oldGeo.dispose();
+        }
+        return;
+    }
+    
+    // 等比随机：基于当前缩放，各轴乘以相同因子（保持形状比例）
+    const factor = 0.6 + Math.random() * 0.8;   // 范围 0.6~1.4，幅度 ±40%
+    let newX = previewMesh.scale.x * factor;
+    let newY = previewMesh.scale.y * factor;
+    let newZ = previewMesh.scale.z * factor;
+    
+    // 边界范围：提高下限到 0.5，上限保持 2.5
+    const minS = 0.5;
+    const maxS = 2.5;
+    
+    // 保持比例整体缩放到边界内
+    let maxVal = Math.max(newX, newY, newZ);
+    let minVal = Math.min(newX, newY, newZ);
+    if (maxVal > maxS) {
+        const ratio = maxS / maxVal;
+        newX *= ratio;
+        newY *= ratio;
+        newZ *= ratio;
+    } else if (minVal < minS) {
+        const ratio = minS / minVal;
+        newX *= ratio;
+        newY *= ratio;
+        newZ *= ratio;
+    }
+    
+    previewMesh.scale.set(newX, newY, newZ);
+    // 更新 userBaseScale，使后续 A/D 调整或再次随机以此为基准
+    userBaseScale.copy(previewMesh.scale);
+    if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
+}
             function randomRotatePreview() {
                 if (!previewMesh) return;
                 if (chkRotate.checked && chkRotateLock90.checked) {
@@ -1026,139 +1093,151 @@
 
                 // 圆柱、圆锥：随机几何参数（半径、高度），同时 scale 基于当前基础值随机（不等比）
                 if (currentKey === 'cylinder') {
-    const rad = 0.3 + Math.random() * 0.8;
-    const h = 0.5 + Math.random() * 1.2;
-    const newGeo = new THREE.CylinderGeometry(rad, rad, h, 32);
-    const oldGeo = previewMesh.geometry;
-    previewMesh.geometry = newGeo;
-    if (oldGeo) oldGeo.dispose();
-    previewMesh.userData.customParams = { type: 'cylinder', radiusTop: rad, radiusBottom: rad, height: h };
-    // scale 随机
     let sx, sy, sz;
     if (chkScaleLockXY.checked) {
-        // 水平等比：保持当前 X 和 Z 的比例，同步缩放
-        const ratioXZ = previewMesh.scale.z / previewMesh.scale.x;   // Z / X 比例
-        const factorXZ = 0.5 + Math.random() * 1.2;   // 水平缩放因子
-        const factorY = 0.5 + Math.random() * 1.2;    // 垂直缩放因子
-        sx = previewMesh.scale.x * factorXZ;
-        sz = sx * ratioXZ;
-        sy = previewMesh.scale.y * factorY;
+        // 水平等比：X 和 Z 使用相同随机因子
+        const factorXZ = 0.6 + Math.random() * 0.8;
+        const factorY = 0.6 + Math.random() * 0.8;
+        sx = factorXZ;
+        sz = factorXZ;
+        sy = factorY;
     } else {
-        const factorX = 0.5 + Math.random() * 1.2;
-        const factorY = 0.5 + Math.random() * 1.2;
-        const factorZ = 0.5 + Math.random() * 1.2;
-        sx = previewMesh.scale.x * factorX;
-        sy = previewMesh.scale.y * factorY;
-        sz = previewMesh.scale.z * factorZ;
+        const factorX = 0.6 + Math.random() * 0.8;
+        const factorY = 0.6 + Math.random() * 0.8;
+        const factorZ = 0.6 + Math.random() * 0.8;
+        sx = factorX;
+        sy = factorY;
+        sz = factorZ;
     }
-    const minS = 0.05, maxS = 4.5;
-    sx = Math.min(maxS, Math.max(minS, sx));
-    sy = Math.min(maxS, Math.max(minS, sy));
-    sz = Math.min(maxS, Math.max(minS, sz));
-    previewMesh.scale.set(sx, sy, sz);
+    // 限制 shapeRatio 各轴范围（避免过扁或过瘦）
+    const minR = 0.2, maxR = 2.0;
+    sx = Math.min(maxR, Math.max(minR, sx));
+    sy = Math.min(maxR, Math.max(minR, sy));
+    sz = Math.min(maxR, Math.max(minR, sz));
+    shapeRatio.set(sx, sy, sz);
+    // 根据新的 shapeRatio 和当前 baseScaleNonUniform 计算预览物体缩放
+    previewMesh.scale.set(
+        baseScaleNonUniform.x * shapeRatio.x,
+        baseScaleNonUniform.y * shapeRatio.y,
+        baseScaleNonUniform.z * shapeRatio.z
+    );
     if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-    console.log(`圆柱随机: 半径=${rad.toFixed(2)}, 高度=${h.toFixed(2)}, scale=(${sx.toFixed(2)},${sy.toFixed(2)},${sz.toFixed(2)})`);
+    console.log(`圆柱随机形状比例: (${sx.toFixed(2)}, ${sy.toFixed(2)}, ${sz.toFixed(2)}) 基础缩放=${baseScaleNonUniform.x.toFixed(2)}`);
     return;
 }
 
                 if (currentKey === 'cone') {
-    const bottomRad = 0.4 + Math.random() * 0.8;
-    const h = 0.6 + Math.random() * 1.2;
-    const newGeo = new THREE.ConeGeometry(bottomRad, h, 32);
-    const oldGeo = previewMesh.geometry;
-    previewMesh.geometry = newGeo;
-    if (oldGeo) oldGeo.dispose();
-    previewMesh.userData.customParams = { type: 'cone', radiusBottom: bottomRad, height: h };
     let sx, sy, sz;
     if (chkScaleLockXY.checked) {
-        const ratioXZ = previewMesh.scale.z / previewMesh.scale.x;
-        const factorXZ = 0.5 + Math.random() * 1.2;
-        const factorY = 0.5 + Math.random() * 1.2;
-        sx = previewMesh.scale.x * factorXZ;
-        sz = sx * ratioXZ;
-        sy = previewMesh.scale.y * factorY;
+        const factorXZ = 0.6 + Math.random() * 0.8;
+        const factorY = 0.6 + Math.random() * 0.8;
+        sx = factorXZ;
+        sz = factorXZ;
+        sy = factorY;
     } else {
-        const factorX = 0.5 + Math.random() * 1.2;
-        const factorY = 0.5 + Math.random() * 1.2;
-        const factorZ = 0.5 + Math.random() * 1.2;
-        sx = previewMesh.scale.x * factorX;
-        sy = previewMesh.scale.y * factorY;
-        sz = previewMesh.scale.z * factorZ;
+        const factorX = 0.6 + Math.random() * 0.8;
+        const factorY = 0.6 + Math.random() * 0.8;
+        const factorZ = 0.6 + Math.random() * 0.8;
+        sx = factorX;
+        sy = factorY;
+        sz = factorZ;
     }
-    const minS = 0.05, maxS = 4.5;
-    sx = Math.min(maxS, Math.max(minS, sx));
-    sy = Math.min(maxS, Math.max(minS, sy));
-    sz = Math.min(maxS, Math.max(minS, sz));
-    previewMesh.scale.set(sx, sy, sz);
+    const minR = 0.2, maxR = 2.0;
+    sx = Math.min(maxR, Math.max(minR, sx));
+    sy = Math.min(maxR, Math.max(minR, sy));
+    sz = Math.min(maxR, Math.max(minR, sz));
+    shapeRatio.set(sx, sy, sz);
+    previewMesh.scale.set(
+        baseScaleNonUniform.x * shapeRatio.x,
+        baseScaleNonUniform.y * shapeRatio.y,
+        baseScaleNonUniform.z * shapeRatio.z
+    );
     if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-    console.log(`圆锥随机: 底半径=${bottomRad.toFixed(2)}, 高度=${h.toFixed(2)}, scale=(${sx.toFixed(2)},${sy.toFixed(2)},${sz.toFixed(2)})`);
+    console.log(`圆锥随机形状比例: (${sx.toFixed(2)}, ${sy.toFixed(2)}, ${sz.toFixed(2)}) 基础缩放=${baseScaleNonUniform.x.toFixed(2)}`);
     return;
 }
 
                 if (currentKey === 'capsule') {
     let sx, sy, sz;
     if (chkScaleLockXY.checked) {
-        const ratioXZ = previewMesh.scale.z / previewMesh.scale.x;
-        const factorXZ = 0.5 + Math.random() * 1.2;
-        const factorY = 0.5 + Math.random() * 1.2;
-        sx = previewMesh.scale.x * factorXZ;
-        sz = sx * ratioXZ;
-        sy = previewMesh.scale.y * factorY;
+        const factorXZ = 0.6 + Math.random() * 0.8;
+        const factorY = 0.6 + Math.random() * 0.8;
+        sx = factorXZ;
+        sz = factorXZ;
+        sy = factorY;
     } else {
-        const factorX = 0.5 + Math.random() * 1.2;
-        const factorY = 0.5 + Math.random() * 1.2;
-        const factorZ = 0.5 + Math.random() * 1.2;
-        sx = previewMesh.scale.x * factorX;
-        sy = previewMesh.scale.y * factorY;
-        sz = previewMesh.scale.z * factorZ;
+        const factorX = 0.6 + Math.random() * 0.8;
+        const factorY = 0.6 + Math.random() * 0.8;
+        const factorZ = 0.6 + Math.random() * 0.8;
+        sx = factorX;
+        sy = factorY;
+        sz = factorZ;
     }
-    const minS = 0.1, maxS = 4.5;
-    sx = Math.min(maxS, Math.max(minS, sx));
-    sy = Math.min(maxS, Math.max(minS, sy));
-    sz = Math.min(maxS, Math.max(minS, sz));
-    previewMesh.scale.set(sx, sy, sz);
+    const minR = 0.3, maxR = 2.0;  // 胶囊下限稍高，避免太扁
+    sx = Math.min(maxR, Math.max(minR, sx));
+    sy = Math.min(maxR, Math.max(minR, sy));
+    sz = Math.min(maxR, Math.max(minR, sz));
+    shapeRatio.set(sx, sy, sz);
+    previewMesh.scale.set(
+        baseScaleNonUniform.x * shapeRatio.x,
+        baseScaleNonUniform.y * shapeRatio.y,
+        baseScaleNonUniform.z * shapeRatio.z
+    );
     if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-    console.log(`胶囊随机缩放: (${sx.toFixed(2)}, ${sy.toFixed(2)}, ${sz.toFixed(2)})`);
+    console.log(`胶囊随机形状比例: (${sx.toFixed(2)}, ${sy.toFixed(2)}, ${sz.toFixed(2)}) 基础缩放=${baseScaleNonUniform.x.toFixed(2)}`);
     return;
 }
 
                 // 其他几何体（立方体、球体、圆环等）：仅对 scale 进行基于当前值的随机（不等比）
                 // 支持“锁定 XY 轴”功能
                 if (chkScaleLockXY.checked) {
-    // 水平等比：保持当前 X 和 Z 的比例，同步缩放
-    const ratioXZ = previewMesh.scale.z / previewMesh.scale.x;
-    const factorXZ = 0.5 + Math.random() * 1.2;
-    const factorY = 0.5 + Math.random() * 1.2;
-    let sx = previewMesh.scale.x * factorXZ;
-    let sz = sx * ratioXZ;
-    let sy = previewMesh.scale.y * factorY;
-    const minS = 0.05, maxS = 4.5;
-    sx = Math.min(maxS, Math.max(minS, sx));
-    sy = Math.min(maxS, Math.max(minS, sy));
-    sz = Math.min(maxS, Math.max(minS, sz));
-    previewMesh.scale.set(sx, sy, sz);
+    // 水平等比：X 和 Z 使用相同随机因子
+    const factorXZ = 0.6 + Math.random() * 0.8;
+    const factorY = 0.6 + Math.random() * 0.8;
+    let sx = factorXZ;
+    let sz = factorXZ;
+    let sy = factorY;
+    const minR = 0.2, maxR = 2.0;
+    sx = Math.min(maxR, Math.max(minR, sx));
+    sy = Math.min(maxR, Math.max(minR, sy));
+    sz = Math.min(maxR, Math.max(minR, sz));
+    shapeRatio.set(sx, sy, sz);
+    previewMesh.scale.set(
+        baseScaleNonUniform.x * shapeRatio.x,
+        baseScaleNonUniform.y * shapeRatio.y,
+        baseScaleNonUniform.z * shapeRatio.z
+    );
     if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-    console.log(`锁定XY轴不等比随机: scale (${sx.toFixed(2)}, ${sy.toFixed(2)}, ${sz.toFixed(2)})`);
+    console.log(`锁定XY轴不等比随机: shapeRatio (${sx.toFixed(2)}, ${sy.toFixed(2)}, ${sz.toFixed(2)})`);
     return;
 }
 
                 // 完全独立三轴随机
-                let sx = userBaseScale.x * (0.5 + Math.random() * 1.2);
-                let sy = userBaseScale.y * (0.5 + Math.random() * 1.2);
-                let sz = userBaseScale.z * (0.5 + Math.random() * 1.2);
-                const minS = 0.05, maxS = 4.5;
-                sx = Math.min(maxS, Math.max(minS, sx));
-                sy = Math.min(maxS, Math.max(minS, sy));
-                sz = Math.min(maxS, Math.max(minS, sz));
-                previewMesh.scale.set(sx, sy, sz);
-                if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-                console.log(`不等比随机: (${sx.toFixed(2)}, ${sy.toFixed(2)}, ${sz.toFixed(2)})`);
+let sx = 0.5 + Math.random() * 1.2;
+let sy = 0.5 + Math.random() * 1.2;
+let sz = 0.5 + Math.random() * 1.2;
+const minR = 0.2, maxR = 2.0;
+sx = Math.min(maxR, Math.max(minR, sx));
+sy = Math.min(maxR, Math.max(minR, sy));
+sz = Math.min(maxR, Math.max(minR, sz));
+shapeRatio.set(sx, sy, sz);
+previewMesh.scale.set(
+    baseScaleNonUniform.x * shapeRatio.x,
+    baseScaleNonUniform.y * shapeRatio.y,
+    baseScaleNonUniform.z * shapeRatio.z
+);
+if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
+console.log(`不等比随机: shapeRatio (${sx.toFixed(2)}, ${sy.toFixed(2)}, ${sz.toFixed(2)})`);
             }
             function executeRandom() {
-                if (chkRotate.checked) randomRotatePreview();
-                if (chkScaleNon.checked) randomNonUniformScale();
-                if (chkScaleUniform.checked) randomUniformScale();
+            if (chkRotate.checked) randomRotatePreview();
+            // 互斥：只能执行一种缩放随机
+            if (chkScaleNon.checked) {
+                randomNonUniformScale();
+            } else if (chkScaleUniform.checked) {
+                randomUniformScale();
             }
+        }
 
             // 删除物体
             function deleteObject(obj) {
@@ -2817,6 +2896,14 @@ recordUndo(() => {
             updatePreviewMesh(true, true);
             setMode('normal');
             updateRandomPanelForShape(currentShapeKey);
+            // 初始化互斥状态：确保两者不会同时勾选
+if (chkScaleNon.checked && chkScaleUniform.checked) {
+    // 默认优先保留不等比（可根据需要调整）
+    chkScaleUniform.checked = false;
+    chkScaleUniform.disabled = true;
+    chkScaleNon.disabled = false;
+}
+chkScaleLockXY.disabled = !chkScaleNon.checked;
             updatePipePanelVisibility();
             document.getElementById('normalModePanel').style.display = 'block';
             document.getElementById('createModePanel').style.display = 'none';
