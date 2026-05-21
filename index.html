@@ -143,27 +143,68 @@
             box-shadow: 0 1px 4px rgba(0,0,0,0.05);
         }
         .random-panel {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(8px);
-            padding: 6px 16px;
-            border-radius: 40px;
-            border: 1px solid rgba(0,0,0,0.1);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            display: flex;
-            gap: 20px;
-            z-index: 30;
-            pointer-events: auto;
-            font-size: 13px;
-            font-weight: 500;
-            color: #2c3e4e;
-        }
+    position: absolute;           /* 保持绝对定位，居中在屏幕顶部 */
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(8px);
+    padding: 6px 16px;
+    border-radius: 40px;
+    border: 1px solid rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    display: flex;
+    flex-wrap: wrap;              /* 新增：允许换行 */
+    gap: 20px;
+    z-index: 30;
+    pointer-events: auto;
+    font-size: 13px;
+    font-weight: 500;
+    color: #2c3e4e;
+    max-width: 90vw;             /* 新增：限制最大宽度 */
+    justify-content: center;     /* 可选：内容居中 */
+}
         .random-panel .indent { display: inline-block; margin-left: 18px; font-size: 12px; color: #555; }
         .random-panel label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
         .random-panel input { margin: 0; cursor: pointer; }
+        .align-panel {
+            position: absolute;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(8px);
+    padding: 6px 16px;
+    border-radius: 40px;
+    border: 1px solid rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    pointer-events: auto;
+    font-size: 13px;
+    font-weight: 500;
+    color: #2c3e4e;
+    z-index: 30;
+    white-space: nowrap;   /* 内部文字不换行 */
+    width: max-content;     /* 宽度由内容决定，不会撑开父元素 */
+        }
+        .snap-panel {
+            position: absolute;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(8px);
+    padding: 6px 16px;
+    border-radius: 40px;
+    border: 1px solid rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    pointer-events: auto;
+    font-size: 13px;
+    font-weight: 500;
+    color: #2c3e4e;
+    z-index: 30;
+    white-space: nowrap;   /* 内部文字不换行 */
+    width: max-content;     /* 宽度由内容决定，不会撑开父元素 */
+        }
+        .snap-panel label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
         .control-panel {
             position: absolute;
             top: 20px;
@@ -246,7 +287,18 @@
         <label><input type="checkbox" id="randomScaleNonUniform"> 比例(不等比)</label>
         <div class="indent"><label><input type="checkbox" id="randomScaleLockXY" disabled> 水平等比 |</label></div>
         <label><input type="checkbox" id="randomScaleUniform"> 缩放(等比)</label>
+
+        <!-- 阵列模式对齐面板（相对 random-panel 定位） -->
+    <div class="align-panel" id="alignPanel" style="position: absolute; top: 100%; left: 50px; margin-top: 8px;">
+    <label><input type="checkbox" id="snapAlignCheckbox"> 阵列模式对齐方向</label>
+</div>
+
+    <!-- 吸附自身面板（相对 random-panel 定位） -->
+    <div class="snap-panel" style="position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 8px;">
+        <label><input type="checkbox" id="snapToSurfaceCheckbox"> 吸附自身(模型表面)</label>
     </div>
+    </div>
+    
 
     <!-- 线模式提示面板 -->
     <div id="pipeModePanel" style="display: none; position: absolute; top: 60px; left: 50%; transform: translateX(-50%); background: #ffffff; color: #2c3e4e; padding: 4px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; z-index: 30; pointer-events: none; box-shadow: 0 2px 6px rgba(0,0,0,0.2);">
@@ -275,8 +327,6 @@
             <div class="light-dir-item"><span>仰角</span><input type="range" id="lightElevation" min="0" max="90" step="1" value="45"></div>
             <div class="light-dir-item"><span>强度</span><input type="range" id="lightIntensity" min="0" max="4" step="0.01" value="1.0"></div>
         </div>
-        <div class="checkbox-item"><label><input type="checkbox" id="snapToSurfaceCheckbox"> 吸附自身(模型表面)</label></div>
-        <div class="checkbox-item"><label><input type="checkbox" id="snapAlignCheckbox"> 阵列模式对齐方向</label></div>
         <div class="checkbox-item"><label><input type="checkbox" id="showGroundCheckbox"> 显示地面</label></div>
         <div class="checkbox-item"><label><input type="checkbox" id="showGridCheckbox" checked> 显示网格线</label></div>
         <div class="label">🌓 环境亮度</div>
@@ -949,6 +999,8 @@
             const chkScaleUniform = document.getElementById('randomScaleUniform');
             const autoRandomCheckbox = document.getElementById('autoRandomCheckbox');
             chkRotate.addEventListener('change', () => { chkRotateLock90.disabled = !chkRotate.checked; if (!chkRotate.checked) chkRotateLock90.checked = false; });
+
+            
             chkScaleNon.addEventListener('change', () => {
     chkScaleLockXY.disabled = !chkScaleNon.checked;
     if (!chkScaleNon.checked) chkScaleLockXY.checked = false;
@@ -1583,6 +1635,19 @@ console.log(`不等比随机: shapeRatio (${sx.toFixed(2)}, ${sy.toFixed(2)}, ${
             const snapToSurfaceCheckbox = document.getElementById('snapToSurfaceCheckbox');
             //const snapToLineCheckbox = document.getElementById('snapToLineCheckbox');
             const snapAlignCheckbox = document.getElementById('snapAlignCheckbox');
+            // 旋转与阵列模式对齐方向互斥
+chkRotate.addEventListener('change', () => {
+    if (chkRotate.checked && snapAlignCheckbox) {
+        snapAlignCheckbox.checked = false;
+    }
+});
+if (snapAlignCheckbox) {
+    snapAlignCheckbox.addEventListener('change', () => {
+        if (snapAlignCheckbox.checked && chkRotate) {
+            chkRotate.checked = false;
+        }
+    });
+}
             // function updateAlignCheckboxState() {
             //     if (snapToLineCheckbox.checked) snapAlignCheckbox.disabled = false;
             //     else { snapAlignCheckbox.disabled = true; snapAlignCheckbox.checked = false; }
@@ -2354,6 +2419,13 @@ recordUndo(() => {
                 if (currentMode !== 'create') return;
                 if (isDragging) { isDragging = false; lastDragPos = null; (event.target || renderer.domElement).releasePointerCapture(event.pointerId); }
             }
+            function updateAlignPanelVisibility() {
+    const alignPanel = document.getElementById('alignPanel');
+    if (!alignPanel) return;
+    // 只在创造模式且线阵列模式开启时显示
+    const shouldShow = (currentMode === 'create' && lineDrawingMode === true);
+    alignPanel.style.display = shouldShow ? 'block' : 'none';
+}
 
             function setMode(mode) {
                 if (currentMode === 'create' && mode !== 'create') {
@@ -2399,6 +2471,8 @@ recordUndo(() => {
                 }
                 document.getElementById('shapeIndicator').innerText = SHAPES[currentShapeKey].name;
                 updatePipePanelVisibility();
+
+                updateAlignPanelVisibility();
                 // 控制右下角提示面板
                     const normalPanel = document.getElementById('normalHintPanel');
                     const placementPanel = document.getElementById('placementHintPanel');
@@ -2421,20 +2495,20 @@ recordUndo(() => {
             }
             function onTab() {
                 if (currentMode === 'normal') {
-                    // 从普通模式切换到创造模式：恢复上次的线模式状态
-                    lineDrawingMode = lastLineDrawingMode;
-                    setMode('create');
-                    // 根据恢复的线模式状态设置面板
-                    if (lineDrawingMode) {
-                        if (previewMesh) previewMesh.visible = false;
-                        document.getElementById('lineModePanel').style.display = 'block';
-                        document.getElementById('createModePanel').style.display = 'none';
-                    } else {
-                        if (previewMesh && lastMouseEvent) updatePreviewPosition(lastMouseEvent);
-                        document.getElementById('lineModePanel').style.display = 'none';
-                        document.getElementById('createModePanel').style.display = 'block';
-                    }
-                } else if (currentMode === 'create') {
+    // 从普通模式切换到创造模式：恢复上次的线模式状态
+    lineDrawingMode = lastLineDrawingMode;
+    setMode('create');
+    // 根据恢复的线模式状态设置面板
+    if (lineDrawingMode) {
+        if (previewMesh) previewMesh.visible = false;
+        document.getElementById('lineModePanel').style.display = 'block';
+        document.getElementById('createModePanel').style.display = 'none';
+    } else {
+        if (previewMesh && lastMouseEvent) updatePreviewPosition(lastMouseEvent);
+        document.getElementById('lineModePanel').style.display = 'none';
+        document.getElementById('createModePanel').style.display = 'block';
+    }
+} else if (currentMode === 'create') {
                     // 从创造模式切换到普通模式：保存当前线模式状态，并确保退出线模式（但不丢失状态）
                     lastLineDrawingMode = lineDrawingMode;
                     if (lineDrawingMode) {
@@ -2479,6 +2553,7 @@ recordUndo(() => {
                     const arrayPanel = document.getElementById('arrayHintPanel');
                     if (placementPanel) placementPanel.style.display = 'none';
                     if (arrayPanel) arrayPanel.style.display = 'block';
+                    updateAlignPanelVisibility();
                 } else {
                     if (previewMesh && lastMouseEvent) {
                         updatePreviewPosition(lastMouseEvent);
@@ -2492,6 +2567,7 @@ recordUndo(() => {
                     const arrayPanel = document.getElementById('arrayHintPanel');
                     if (placementPanel) placementPanel.style.display = 'block';
                     if (arrayPanel) arrayPanel.style.display = 'none';
+                    updateAlignPanelVisibility();   // <--- 添加这一行
                 }
             }
             function onPointerMove(event) {
@@ -2868,8 +2944,9 @@ recordUndo(() => {
                 scene.add(symmetryLine);
             }
             function onWindowResize() { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); }
-            function isUIElement(target) { return !!target.closest('.tools-panel, .random-panel, .control-panel'); }
-
+            function isUIElement(target) { 
+    return !!target.closest('.tools-panel, .random-panel, .control-panel, .align-panel, .snap-panel'); 
+}
             // UI按钮
             const specularBtn = document.getElementById('specularBtn');
             const outlineModeBtn = document.getElementById('outlineModeBtn');
@@ -2895,6 +2972,7 @@ recordUndo(() => {
             // 初始化
             updatePreviewMesh(true, true);
             setMode('normal');
+            updateAlignPanelVisibility();
             updateRandomPanelForShape(currentShapeKey);
             // 初始化互斥状态：确保两者不会同时勾选
 if (chkScaleNon.checked && chkScaleUniform.checked) {
