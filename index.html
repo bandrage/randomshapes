@@ -346,6 +346,10 @@
         });
         
         function init() {
+        let baseScale = new THREE.Vector3(1, 1, 1);       // 仅由 A/D 键修改
+let uniformFactor = new THREE.Vector3(1, 1, 1);   // 仅由等比随机修改
+let shapeRatio = new THREE.Vector3(1, 1, 1);      // 仅由不等比随机修改
+let lockXYFactor = new THREE.Vector3(1, 1, 1);   // 水平锁定因子，X和Z始终相同，仅由勾选水平锁定时的不等比随机修改
             let savedRandomState = null;      // 存储进入线形状前的随机选项状态
             let lastShapeKey = null;          // 记录上一次的形状，稍后初始化
             let threePreviewTimer = null;   // 用于控制侧边预览物体自动消失的定时器
@@ -384,11 +388,22 @@
             
             // 对称模式
             let symmetryMode = false;
-            let userBaseScale = new THREE.Vector3(1, 1, 1);
-            let baseScaleNonUniform = new THREE.Vector3(1, 1, 1);   // 仅用于不等比随机，只由 A/D 更新
-            let shapeRatio = new THREE.Vector3(1, 1, 1);   // 记录当前形状的轴间比例（不等比随机的结果）
+            //let userBaseScale = new THREE.Vector3(1, 1, 1);
+            //let baseScaleNonUniform = new THREE.Vector3(1, 1, 1);   // 仅用于不等比随机，只由 A/D 更新
+            //let shapeRatio = new THREE.Vector3(1, 1, 1);   // 记录当前形状的轴间比例（不等比随机的结果）
             let symmetryLine = null;
             let undoStack = [];
+
+            function applyPreviewScale() {
+    if (!previewMesh) return;
+    const finalScale = new THREE.Vector3(
+        baseScale.x * uniformFactor.x * shapeRatio.x * lockXYFactor.x,
+        baseScale.y * uniformFactor.y * shapeRatio.y * lockXYFactor.y,
+        baseScale.z * uniformFactor.z * shapeRatio.z * lockXYFactor.z
+    );
+    previewMesh.scale.copy(finalScale);
+    if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
+}
 
             function recordUndo(undoFunc) { undoStack.push(undoFunc); if (undoStack.length > 50) undoStack.shift(); }
             function undo() { if (undoStack.length === 0) return; const undoFunc = undoStack.pop(); undoFunc(); }
@@ -785,9 +800,11 @@
                     if (oldMat && oldMat !== PREVIEW_MATERIAL) oldMat.dispose();
                     if (resetScale) {
     previewMesh.scale.set(1, 1, 1);
-    userBaseScale.set(1, 1, 1);
-    baseScaleNonUniform.set(1, 1, 1);
+    baseScale.set(1, 1, 1);
+    uniformFactor.set(1, 1, 1);
     shapeRatio.set(1, 1, 1);
+    lockXYFactor.set(1, 1, 1);
+    applyPreviewScale();
 }
                     delete previewMesh.userData?.customParams;
                     if (resetRotation) previewMesh.rotation.set(0, 0, 0);
@@ -796,9 +813,13 @@
                     previewMesh.castShadow = false;
                     scene.add(previewMesh);
                     if (resetScale) {
-                        previewMesh.scale.set(1, 1, 1);
-                        userBaseScale.set(1, 1, 1);
-                    }
+    previewMesh.scale.set(1, 1, 1);
+    baseScale.set(1, 1, 1);
+    uniformFactor.set(1, 1, 1);
+    shapeRatio.set(1, 1, 1);
+    lockXYFactor.set(1, 1, 1);
+    applyPreviewScale();
+}
                     if (resetRotation) previewMesh.rotation.set(0, 0, 0);
                 }
                 previewMesh.visible = false;
@@ -960,35 +981,17 @@
             function scalePreviewUniform(step) {
     if (!previewMesh) return;
     const factor = step > 0 ? 1.05 : 0.95;
-    // 只修改基础缩放（正几何体的大小）
-    let newBaseX = baseScaleNonUniform.x * factor;
-    let newBaseY = baseScaleNonUniform.y * factor;
-    let newBaseZ = baseScaleNonUniform.z * factor;
-    const minS = 0.05, maxS = 4.5;
-    let maxVal = Math.max(newBaseX, newBaseY, newBaseZ);
-    let minVal = Math.min(newBaseX, newBaseY, newBaseZ);
-    if (maxVal > maxS) {
-        let ratio = maxS / maxVal;
-        newBaseX *= ratio;
-        newBaseY *= ratio;
-        newBaseZ *= ratio;
-    }
-    if (minVal < minS) {
-        let ratio = minS / minVal;
-        newBaseX *= ratio;
-        newBaseY *= ratio;
-        newBaseZ *= ratio;
-    }
-    baseScaleNonUniform.set(newBaseX, newBaseY, newBaseZ);
-    // 根据新的基础缩放和当前形状比例，重新计算预览物体缩放
-    previewMesh.scale.set(
-        baseScaleNonUniform.x * shapeRatio.x,
-        baseScaleNonUniform.y * shapeRatio.y,
-        baseScaleNonUniform.z * shapeRatio.z
-    );
-    // 同步 userBaseScale（供等比随机使用）
-    userBaseScale.copy(previewMesh.scale);
-    if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
+    baseScale.x *= factor;
+    baseScale.y *= factor;
+    baseScale.z *= factor;
+    const minS = 0.2, maxS = 2.5;
+    baseScale.x = Math.min(maxS, Math.max(minS, baseScale.x));
+    baseScale.y = Math.min(maxS, Math.max(minS, baseScale.y));
+    baseScale.z = Math.min(maxS, Math.max(minS, baseScale.z));
+    // 删除下面两行！不要重置 shapeRatio 和 lockXYFactor
+    // shapeRatio.set(1, 1, 1);
+    // lockXYFactor.set(1, 1, 1);
+    applyPreviewScale();
 }
 
             // 随机选项
@@ -1027,49 +1030,32 @@
             function randomUniformScale() {
     if (!previewMesh) return;
     if (currentShapeKey === 'pipe') {
+        // 线形状保持不变：随机半径
         const factor = 0.5 + Math.random() * 1.5;
         let newRadius = pipeRadius * factor;
         newRadius = Math.min(0.5, Math.max(0.03, newRadius));
         if (Math.abs(newRadius - pipeRadius) < 0.001) return;
         pipeRadius = newRadius;
-        if (previewMesh) {
-            const newGeo = new THREE.CylinderGeometry(pipeRadius, pipeRadius, 0.9, 16);
-            const oldGeo = previewMesh.geometry;
-            previewMesh.geometry = newGeo;
-            if (oldGeo) oldGeo.dispose();
-        }
+        const newGeo = new THREE.CylinderGeometry(pipeRadius, pipeRadius, 0.9, 16);
+        const oldGeo = previewMesh.geometry;
+        previewMesh.geometry = newGeo;
+        if (oldGeo) oldGeo.dispose();
         return;
     }
     
-    // 等比随机：基于当前缩放，各轴乘以相同因子（保持形状比例）
-    const factor = 0.6 + Math.random() * 0.8;   // 范围 0.6~1.4，幅度 ±40%
-    let newX = previewMesh.scale.x * factor;
-    let newY = previewMesh.scale.y * factor;
-    let newZ = previewMesh.scale.z * factor;
-    
-    // 边界范围：提高下限到 0.5，上限保持 2.5
-    const minS = 0.5;
-    const maxS = 2.5;
-    
-    // 保持比例整体缩放到边界内
-    let maxVal = Math.max(newX, newY, newZ);
-    let minVal = Math.min(newX, newY, newZ);
-    if (maxVal > maxS) {
-        const ratio = maxS / maxVal;
-        newX *= ratio;
-        newY *= ratio;
-        newZ *= ratio;
-    } else if (minVal < minS) {
-        const ratio = minS / minVal;
-        newX *= ratio;
-        newY *= ratio;
-        newZ *= ratio;
-    }
-    
-    previewMesh.scale.set(newX, newY, newZ);
-    // 更新 userBaseScale，使后续 A/D 调整或再次随机以此为基准
-    userBaseScale.copy(previewMesh.scale);
-    if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
+    // 等比随机：直接生成新的均匀缩放值（0.5~1.7）
+const newScale = 0.5 + Math.random() * 1.2;
+const clamped = Math.min(2.0, Math.max(0.2, newScale));
+uniformFactor.set(clamped, clamped, clamped);
+lockXYFactor.set(1, 1, 1);
+applyPreviewScale();
+// 边界限制（与 shapeRatio 一致：0.2~2.0）
+const minF = 0.2, maxF = 2.0;
+uniformFactor.x = Math.min(maxF, Math.max(minF, uniformFactor.x));
+uniformFactor.y = Math.min(maxF, Math.max(minF, uniformFactor.y));
+uniformFactor.z = Math.min(maxF, Math.max(minF, uniformFactor.z));
+    lockXYFactor.set(1, 1, 1);
+    applyPreviewScale();
 }
             function randomRotatePreview() {
                 if (!previewMesh) return;
@@ -1083,290 +1069,94 @@
                 }
             }
             function randomNonUniformScale() {
-                if (!previewMesh) return;
-                if (!chkScaleNon.checked) return;
+    if (!previewMesh) return;
+    if (!chkScaleNon.checked) return;
 
-                const currentKey = currentShapeKey;
+    const currentKey = currentShapeKey;
 
-                // 圆台：直接随机几何参数（半径、高度），不改变 scale
-                if (currentKey === 'truncatedCone') {
-    let currentTopR = 0.25, currentBottomR = 0.55, currentH = 0.9;
-    if (previewMesh.userData.customParams && previewMesh.userData.customParams.type === 'truncatedCone') {
-        currentTopR = previewMesh.userData.customParams.radiusTop;
-        currentBottomR = previewMesh.userData.customParams.radiusBottom;
-        currentH = previewMesh.userData.customParams.height;
-    }
-    let newTopR, newBottomR, newH;
-    if (chkScaleLockXY.checked) {
-        // 水平等比：保持上下底半径的比例不变，整体缩放半径
-        const ratio = currentBottomR / currentTopR;   // 下底 / 上底 比例
-        const factorXY = 0.5 + Math.random() * 1.2;   // 半径缩放因子
-        let rawTopR = currentTopR * factorXY;
-        let rawBottomR = rawTopR * ratio;
-        // 限制半径范围（整体缩放保持比例）
-        const minR = 0.1, maxR = 1.2;
-        if (rawTopR > maxR || rawBottomR > maxR) {
-            const scale = maxR / Math.max(rawTopR, rawBottomR);
-            rawTopR *= scale;
-            rawBottomR *= scale;
+    // 特殊形状：仅圆台（truncatedCone）
+    if (currentKey === 'truncatedCone') {
+        // 圆台特殊处理（保持不变）
+        let currentTopR = 0.25, currentBottomR = 0.55, currentH = 0.9;
+        if (previewMesh.userData.customParams && previewMesh.userData.customParams.type === 'truncatedCone') {
+            currentTopR = previewMesh.userData.customParams.radiusTop;
+            currentBottomR = previewMesh.userData.customParams.radiusBottom;
+            currentH = previewMesh.userData.customParams.height;
         }
-        if (rawTopR < minR || rawBottomR < minR) {
-            const scale = minR / Math.min(rawTopR, rawBottomR);
-            rawTopR *= scale;
-            rawBottomR *= scale;
-        }
-        newTopR = rawTopR;
-        newBottomR = rawBottomR;
-        // 高度独立随机
-        const factorY = 0.5 + Math.random() * 1.2;
-        newH = currentH * factorY;
-        newH = Math.min(2.0, Math.max(0.4, newH));
-    } else {
-        // 完全独立随机（基于当前值）
-        const factorTop = 0.5 + Math.random() * 1.2;
-        const factorBottom = 0.5 + Math.random() * 1.2;
-        const factorH = 0.5 + Math.random() * 1.2;
-        newTopR = currentTopR * factorTop;
-        newBottomR = currentBottomR * factorBottom;
-        newH = currentH * factorH;
-        newTopR = Math.min(1.2, Math.max(0.1, newTopR));
-        newBottomR = Math.min(1.2, Math.max(0.1, newBottomR));
-        newH = Math.min(2.0, Math.max(0.4, newH));
-    }
-    const newGeo = new THREE.CylinderGeometry(newTopR, newBottomR, newH, 32);
-    const oldGeo = previewMesh.geometry;
-    previewMesh.geometry = newGeo;
-    if (oldGeo) oldGeo.dispose();
-    previewMesh.userData.customParams = { type: 'truncatedCone', radiusTop: newTopR, radiusBottom: newBottomR, height: newH };
-    if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-    console.log(`圆台随机: 上半径=${newTopR.toFixed(2)}, 下半径=${newBottomR.toFixed(2)}, 高度=${newH.toFixed(2)}, 水平等比=${chkScaleLockXY.checked}`);
-    return;
-}
-
-                // 圆柱、圆锥：随机几何参数（半径、高度），同时 scale 基于当前基础值随机（不等比）
-                    if (currentKey === 'cylinder') {
-    let sx, sy, sz;
-    if (chkScaleLockXY.checked) {
-    const currentScale = previewMesh.scale.clone();
-    let factor = 0.6 + Math.random() * 0.8;
-    const minR = 0.2, maxR = 2.0;
-    
-    function adjustFactor(current, factor, minVal, maxVal) {
-        let newVal = current * factor;
-        if (newVal < minVal) factor = minVal / current;
-        else if (newVal > maxVal) factor = maxVal / current;
-        return factor;
-    }
-    
-    let factorX = adjustFactor(currentScale.x, factor, minR, maxR);
-    let factorZ = adjustFactor(currentScale.z, factor, minR, maxR);
-    let finalFactor = Math.min(factorX, factorZ);
-    
-    let newX = currentScale.x * finalFactor;
-    let newZ = currentScale.z * finalFactor;
-    let factorY = 0.6 + Math.random() * 0.8;
-    let newY = currentScale.y * factorY;
-    if (newY < minR) newY = minR;
-    if (newY > maxR) newY = maxR;
-    
-    previewMesh.scale.set(newX, newY, newZ);
-    baseScaleNonUniform.set(newX, newY, newZ);
-    shapeRatio.set(1, 1, 1);
-    userBaseScale.copy(previewMesh.scale);
-    if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-    console.log(`圆柱水平等比随机(保持比例): (${newX.toFixed(2)}, ${newY.toFixed(2)}, ${newZ.toFixed(2)})`);
-    return;
-} else {
-        const factorX = 0.6 + Math.random() * 0.8;
-        const factorY = 0.6 + Math.random() * 0.8;
-        const factorZ = 0.6 + Math.random() * 0.8;
-        sx = factorX;
-        sy = factorY;
-        sz = factorZ;
-        const minR = 0.2, maxR = 2.0;
-        sx = Math.min(maxR, Math.max(minR, sx));
-        sy = Math.min(maxR, Math.max(minR, sy));
-        sz = Math.min(maxR, Math.max(minR, sz));
-        shapeRatio.set(sx, sy, sz);
-        previewMesh.scale.set(
-            baseScaleNonUniform.x * shapeRatio.x,
-            baseScaleNonUniform.y * shapeRatio.y,
-            baseScaleNonUniform.z * shapeRatio.z
-        );
-        if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-        console.log(`圆柱随机形状比例: (${sx.toFixed(2)}, ${sy.toFixed(2)}, ${sz.toFixed(2)}) 基础缩放=${baseScaleNonUniform.x.toFixed(2)}`);
-        return;
-    }
-}
-
-                                if (currentKey === 'cone') {
-    let sx, sy, sz;
-    if (chkScaleLockXY.checked) {
-    const currentScale = previewMesh.scale.clone();
-    let factor = 0.6 + Math.random() * 0.8;
-    const minR = 0.2, maxR = 2.0;
-    
-    function adjustFactor(current, factor, minVal, maxVal) {
-        let newVal = current * factor;
-        if (newVal < minVal) factor = minVal / current;
-        else if (newVal > maxVal) factor = maxVal / current;
-        return factor;
-    }
-    
-    let factorX = adjustFactor(currentScale.x, factor, minR, maxR);
-    let factorZ = adjustFactor(currentScale.z, factor, minR, maxR);
-    let finalFactor = Math.min(factorX, factorZ);
-    
-    let newX = currentScale.x * finalFactor;
-    let newZ = currentScale.z * finalFactor;
-    let factorY = 0.6 + Math.random() * 0.8;
-    let newY = currentScale.y * factorY;
-    if (newY < minR) newY = minR;
-    if (newY > maxR) newY = maxR;
-    
-    previewMesh.scale.set(newX, newY, newZ);
-    baseScaleNonUniform.set(newX, newY, newZ);
-    shapeRatio.set(1, 1, 1);
-    userBaseScale.copy(previewMesh.scale);
-    if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-    console.log(`圆锥水平等比随机(保持比例): (${newX.toFixed(2)}, ${newY.toFixed(2)}, ${newZ.toFixed(2)})`);
-    return;
-} else {
-        const factorX = 0.6 + Math.random() * 0.8;
-        const factorY = 0.6 + Math.random() * 0.8;
-        const factorZ = 0.6 + Math.random() * 0.8;
-        sx = factorX;
-        sy = factorY;
-        sz = factorZ;
-        const minR = 0.2, maxR = 2.0;
-        sx = Math.min(maxR, Math.max(minR, sx));
-        sy = Math.min(maxR, Math.max(minR, sy));
-        sz = Math.min(maxR, Math.max(minR, sz));
-        shapeRatio.set(sx, sy, sz);
-        previewMesh.scale.set(
-            baseScaleNonUniform.x * shapeRatio.x,
-            baseScaleNonUniform.y * shapeRatio.y,
-            baseScaleNonUniform.z * shapeRatio.z
-        );
-        if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-        console.log(`圆锥随机形状比例: (${sx.toFixed(2)}, ${sy.toFixed(2)}, ${sz.toFixed(2)}) 基础缩放=${baseScaleNonUniform.x.toFixed(2)}`);
-        return;
-    }
-}
-
-                                if (currentKey === 'capsule') {
-    let sx, sy, sz;
-    if (chkScaleLockXY.checked) {
-    const currentScale = previewMesh.scale.clone();
-    let factor = 0.6 + Math.random() * 0.8;
-    const minR = 0.3, maxR = 2.0;
-    
-    function adjustFactor(current, factor, minVal, maxVal) {
-        let newVal = current * factor;
-        if (newVal < minVal) factor = minVal / current;
-        else if (newVal > maxVal) factor = maxVal / current;
-        return factor;
-    }
-    
-    let factorX = adjustFactor(currentScale.x, factor, minR, maxR);
-    let factorZ = adjustFactor(currentScale.z, factor, minR, maxR);
-    let finalFactor = Math.min(factorX, factorZ);
-    
-    let newX = currentScale.x * finalFactor;
-    let newZ = currentScale.z * finalFactor;
-    let factorY = 0.6 + Math.random() * 0.8;
-    let newY = currentScale.y * factorY;
-    if (newY < minR) newY = minR;
-    if (newY > maxR) newY = maxR;
-    
-    previewMesh.scale.set(newX, newY, newZ);
-    baseScaleNonUniform.set(newX, newY, newZ);
-    shapeRatio.set(1, 1, 1);
-    userBaseScale.copy(previewMesh.scale);
-    if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-    console.log(`胶囊水平等比随机(保持比例): (${newX.toFixed(2)}, ${newY.toFixed(2)}, ${newZ.toFixed(2)})`);
-    return;
-} else {
-        const factorX = 0.6 + Math.random() * 0.8;
-        const factorY = 0.6 + Math.random() * 0.8;
-        const factorZ = 0.6 + Math.random() * 0.8;
-        sx = factorX;
-        sy = factorY;
-        sz = factorZ;
-        const minR = 0.3, maxR = 2.0;
-        sx = Math.min(maxR, Math.max(minR, sx));
-        sy = Math.min(maxR, Math.max(minR, sy));
-        sz = Math.min(maxR, Math.max(minR, sz));
-        shapeRatio.set(sx, sy, sz);
-        previewMesh.scale.set(
-            baseScaleNonUniform.x * shapeRatio.x,
-            baseScaleNonUniform.y * shapeRatio.y,
-            baseScaleNonUniform.z * shapeRatio.z
-        );
-        if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-        console.log(`胶囊随机形状比例: (${sx.toFixed(2)}, ${sy.toFixed(2)}, ${sz.toFixed(2)}) 基础缩放=${baseScaleNonUniform.x.toFixed(2)}`);
-        return;
-    }
-}
-
-                // 其他几何体（立方体、球体、圆环等）：仅对 scale 进行基于当前值的随机（不等比）
-                // 支持“锁定 XY 轴”功能
-                if (chkScaleLockXY.checked) {
-    const currentScale = previewMesh.scale.clone();
-    // 随机因子范围 0.6~1.4
-    let factor = 0.6 + Math.random() * 0.8;
-    const minS = 0.2, maxS = 2.5;
-    
-    // 计算应用因子后的值，并调整因子使其不越界
-    function adjustFactor(current, factor, minVal, maxVal) {
-        let newVal = current * factor;
-        if (newVal < minVal) {
-            factor = minVal / current;
-        } else if (newVal > maxVal) {
-            factor = maxVal / current;
-        }
-        return factor;
-    }
-    
-    // 分别计算X和Z所需的因子，取较小的那个（保证两者都不越界）
-    let factorX = adjustFactor(currentScale.x, factor, minS, maxS);
-    let factorZ = adjustFactor(currentScale.z, factor, minS, maxS);
-    let finalFactor = Math.min(factorX, factorZ);
-    
-    let newX = currentScale.x * finalFactor;
-    let newZ = currentScale.z * finalFactor;
-    // Y轴独立随机（也做边界调整）
-    let factorY = 0.6 + Math.random() * 0.8;
-    let newY = currentScale.y * factorY;
-    if (newY < minS) newY = minS;
-    if (newY > maxS) newY = maxS;
-    
-    previewMesh.scale.set(newX, newY, newZ);
-    baseScaleNonUniform.set(newX, newY, newZ);
-    shapeRatio.set(1, 1, 1);
-    userBaseScale.copy(previewMesh.scale);
-    if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-    console.log(`水平等比随机(保持比例): 新缩放 (${newX.toFixed(2)}, ${newY.toFixed(2)}, ${newZ.toFixed(2)})`);
-    return;
-}
-
-                // 完全独立三轴随机
-let sx = 0.5 + Math.random() * 1.2;
-let sy = 0.5 + Math.random() * 1.2;
-let sz = 0.5 + Math.random() * 1.2;
-const minR = 0.2, maxR = 2.0;
-sx = Math.min(maxR, Math.max(minR, sx));
-sy = Math.min(maxR, Math.max(minR, sy));
-sz = Math.min(maxR, Math.max(minR, sz));
-shapeRatio.set(sx, sy, sz);
-previewMesh.scale.set(
-    baseScaleNonUniform.x * shapeRatio.x,
-    baseScaleNonUniform.y * shapeRatio.y,
-    baseScaleNonUniform.z * shapeRatio.z
-);
-if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
-console.log(`不等比随机: shapeRatio (${sx.toFixed(2)}, ${sy.toFixed(2)}, ${sz.toFixed(2)})`);
+        let newTopR, newBottomR, newH;
+        if (chkScaleLockXY.checked) {
+            const ratio = currentBottomR / currentTopR;
+            const factorXY = 0.5 + Math.random() * 1.2;
+            let rawTopR = currentTopR * factorXY;
+            let rawBottomR = rawTopR * ratio;
+            const minR = 0.1, maxR = 1.2;
+            if (rawTopR > maxR || rawBottomR > maxR) {
+                const scale = maxR / Math.max(rawTopR, rawBottomR);
+                rawTopR *= scale;
+                rawBottomR *= scale;
             }
+            if (rawTopR < minR || rawBottomR < minR) {
+                const scale = minR / Math.min(rawTopR, rawBottomR);
+                rawTopR *= scale;
+                rawBottomR *= scale;
+            }
+            newTopR = rawTopR;
+            newBottomR = rawBottomR;
+            const factorY = 0.5 + Math.random() * 1.2;
+            newH = currentH * factorY;
+            newH = Math.min(2.0, Math.max(0.4, newH));
+        } else {
+            const factorTop = 0.5 + Math.random() * 1.2;
+            const factorBottom = 0.5 + Math.random() * 1.2;
+            const factorH = 0.5 + Math.random() * 1.2;
+            newTopR = currentTopR * factorTop;
+            newBottomR = currentBottomR * factorBottom;
+            newH = currentH * factorH;
+            newTopR = Math.min(1.2, Math.max(0.1, newTopR));
+            newBottomR = Math.min(1.2, Math.max(0.1, newBottomR));
+            newH = Math.min(2.0, Math.max(0.4, newH));
+        }
+        const newGeo = new THREE.CylinderGeometry(newTopR, newBottomR, newH, 32);
+        const oldGeo = previewMesh.geometry;
+        previewMesh.geometry = newGeo;
+        if (oldGeo) oldGeo.dispose();
+        previewMesh.userData.customParams = { type: 'truncatedCone', radiusTop: newTopR, radiusBottom: newBottomR, height: newH };
+        if (previewMesh.visible && customHeight !== null) previewMesh.position.y = customHeight;
+        console.log(`圆台随机: 上半径=${newTopR.toFixed(2)}, 下半径=${newBottomR.toFixed(2)}, 高度=${newH.toFixed(2)}, 水平等比=${chkScaleLockXY.checked}`);
+        return;
+    }
+
+    // 普通几何体（包括圆柱、圆锥、胶囊、立方体、球体等）
+    if (chkScaleLockXY.checked) {
+        // 水平锁定时：修改 lockXYFactor，不修改 shapeRatio
+        const factor = 0.5 + Math.random() * 1.2;
+        const minR = 0.2, maxR = 2.0;
+        let commonVal = factor;
+        commonVal = Math.min(maxR, Math.max(minR, commonVal));
+        lockXYFactor.x = commonVal;
+        lockXYFactor.z = commonVal;
+        lockXYFactor.y = 1;  // Y轴不受水平锁定影响
+        
+        // Y轴独立随机（让物体也可以上下拉伸）
+        let sy = 0.5 + Math.random() * 1.2;
+        sy = Math.min(maxR, Math.max(minR, sy));
+        lockXYFactor.y = sy;
+    } else {
+        // 不锁定时：修改 shapeRatio，lockXYFactor 保持 (1,1,1)
+        let sx = 0.5 + Math.random() * 1.2;
+        let sy = 0.5 + Math.random() * 1.2;
+        let sz = 0.5 + Math.random() * 1.2;
+        const minR = 0.2, maxR = 2.0;
+        sx = Math.min(maxR, Math.max(minR, sx));
+        sy = Math.min(maxR, Math.max(minR, sy));
+        sz = Math.min(maxR, Math.max(minR, sz));
+        shapeRatio.set(sx, sy, sz);
+        // 重置 lockXYFactor 为 (1,1,1)
+        lockXYFactor.set(1, 1, 1);
+    }
+    
+    applyPreviewScale();
+}
             function executeRandom() {
             if (chkRotate.checked) randomRotatePreview();
             // 互斥：只能执行一种缩放随机
