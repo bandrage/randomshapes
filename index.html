@@ -76,9 +76,9 @@
         }
         .tools-item {
             display: flex;
-            justify-content: space-between;
             align-items: center;
             gap: 12px;
+            /* 删除原来的 justify-content: space-between; */
         }
         .tools-label {
             font-size: 12px;
@@ -86,17 +86,25 @@
             color: #2c3e4e;
         }
         .tools-item button {
-            background: rgba(200,200,200,0.8);
-            border: none;
-            padding: 4px 12px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 11px;
-            font-weight: 500;
-            transition: 0.2s;
-            color: #2c3e4e;
-            min-width: 64px;
-        }
+    background: rgba(200,200,200,0.8);
+    border: none;
+    padding: 4px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 500;
+    transition: 0.2s;
+    color: #2c3e4e;
+    width: 100%;           /* 新增：填满整行宽度 */
+    min-width: 0;          /* 覆盖原来的 min-width，防止溢出 */
+}
+/* 响应式下维持等宽 */
+@media (max-width: 600px) {
+    .tools-item button {
+        font-size: 10px;
+        padding: 4px 8px;
+    }
+}
         .tools-item button.active {
             background: #2c7ab1;
             color: white;
@@ -274,10 +282,12 @@
     </div>
 
     <div class="tools-panel">
-        <div class="tools-item"><div class="tools-label">🎨 高光</div><button id="specularBtn">开启</button></div>
-        <div class="tools-item"><div class="tools-label">✏️ 轮廓线</div><button id="outlineModeBtn">关闭</button></div>
-        <div class="tools-item"><div class="tools-label">📏 显示骨架线</div><button id="showLinesBtn" class="active">显示</button></div>
-        <div class="tools-item"><div class="tools-label">👁️ 几何体可见性</div><button id="toggleGeometryBtn">隐藏当前</button></div>
+        <!-- 新增标题 -->
+    <div class="tools-title">👁️可见性</div>
+        <div class="tools-item"><button id="specularBtn">🎨高光可见性</button></div>
+        <div class="tools-item"><button id="outlineModeBtn">▦轮廓线可见性</button></div>
+        <div class="tools-item"><button id="showLinesBtn" class="active">🦴骨架可见性</button></div>
+        <div class="tools-item"><button id="toggleGeometryBtn">🧱几何体可见性</button></div>
     </div>
 
     <div class="random-panel">
@@ -2831,19 +2841,19 @@ recordUndo(() => {
             let outlineModeState = false, showLinesState = true;
             function toggleGeometryVisibility() {
                 const hasVisible = placedObjects.some(obj => obj.visible === true);
-                if (hasVisible) { placedObjects.forEach(obj => obj.visible = false); toggleGeometryBtn.innerText = '显示几何体'; }
-                else { placedObjects.forEach(obj => obj.visible = true); toggleGeometryBtn.innerText = '隐藏几何体'; }
+                if (hasVisible) { placedObjects.forEach(obj => obj.visible = false); toggleGeometryBtn.innerText = '🧱几何体可见性'; }
+                else { placedObjects.forEach(obj => obj.visible = true); toggleGeometryBtn.innerText = '🧱几何体可见性'; }
             }
             toggleGeometryBtn.addEventListener('click', toggleGeometryVisibility);
             specularBtn.addEventListener('click', () => {
                 specularEnabled = !specularEnabled;
-                specularBtn.innerText = specularEnabled ? '开启' : '关闭';
+                specularBtn.innerText = specularEnabled ? '🎨高光可见性' : '🎨高光可见性';
                 placedObjects.forEach(obj => { if (obj.material) { obj.material.roughness = specularEnabled ? 0.3 : 1.0; obj.material.metalness = specularEnabled ? 0.2 : 0; } });
                 if (previewMesh && previewMesh.material) { previewMesh.material.roughness = specularEnabled ? 0.3 : 1.0; previewMesh.material.metalness = specularEnabled ? 0.2 : 0; }
                 if (groundPlane && groundPlane.material) { groundPlane.material.roughness = specularEnabled ? 0.3 : 1.0; groundPlane.material.metalness = specularEnabled ? 0.2 : 0; }
             });
-            outlineModeBtn.addEventListener('click', () => { outlineModeState = !outlineModeState; outlineModeBtn.innerText = outlineModeState ? '开启' : '关闭'; toggleOutlineMode(outlineModeState); });
-            showLinesBtn.addEventListener('click', () => { showLinesState = !showLinesState; showLinesBtn.innerText = showLinesState ? '显示' : '隐藏'; showLinesBtn.classList.toggle('active', showLinesState); toggleSkeletonLines(showLinesState); });
+            outlineModeBtn.addEventListener('click', () => { outlineModeState = !outlineModeState; outlineModeBtn.innerText = outlineModeState ? '▦轮廓线可见性' : '▦轮廓线可见性'; toggleOutlineMode(outlineModeState); });
+            showLinesBtn.addEventListener('click', () => { showLinesState = !showLinesState; showLinesBtn.innerText = showLinesState ? '🦴骨架可见性' : '🦴骨架可见性'; showLinesBtn.classList.toggle('active', showLinesState); toggleSkeletonLines(showLinesState); });
 
             // 初始化
             updatePreviewMesh(true, true);
