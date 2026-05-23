@@ -387,6 +387,7 @@ let lockXYFactor = new THREE.Vector3(1, 1, 1);   // 水平锁定因子，X和Z�
             let lineTempLine = null;
             let lineLastClickTime = 0;
             let lineSpacing = 0.9;             // 物体间距（基于物体默认尺寸）
+            let pipeLinesVisible = true;   // 控制 pipe 线段和端点球体的可见性
 
             let isDraggingObject = false;      // 是否正在拖拽物体
             let draggedObject = null;          // 当前拖拽的物体
@@ -2053,6 +2054,7 @@ if (snapAlignCheckbox) {
                             );
                             startSphere.position.copy(startPos);
                             scene.add(startSphere);
+                            startSphere.visible = pipeLinesVisible;
                             pipeSegments.push(startSphere);
                             pointSpheres = [startSphere];   // 记录球体
                             pipeLastClickTime = now;
@@ -2075,6 +2077,7 @@ if (snapAlignCheckbox) {
                                 );
                                 endSphere.position.copy(nextPos);
                                 scene.add(endSphere);
+                                endSphere.visible = pipeLinesVisible;
                                 pipeSegments.push(endSphere);
                                 // 记录新球体
                                 pointSpheres.push(endSphere);
@@ -2088,6 +2091,7 @@ if (snapAlignCheckbox) {
                                 const lineObj = new THREE.Line(lineGeo, lineMat);
                                 lineObj.isLine = true;
                                 scene.add(lineObj);
+                                lineObj.visible = pipeLinesVisible;
                                 pipeSegments.push(lineObj);
                                 console.log("[创建线段] pipeSegments 当前包含:", pipeSegments.map(obj => obj.isLine ? "线段" : (obj.geometry?.type || "未知")));
                                 // 记录撤销：删除新添加的线段
@@ -2109,6 +2113,7 @@ if (snapAlignCheckbox) {
                                         );
                                         startMirrorSphere.position.copy(lastMirrorPos);
                                         scene.add(startMirrorSphere);
+                                        startMirrorSphere.visible = pipeLinesVisible;
                                         pipeSegments.push(startMirrorSphere);
                                         if (startSphere) {
                                             startMirrorSphere.userData.mirrorOf = startSphere;
@@ -2124,6 +2129,7 @@ if (snapAlignCheckbox) {
                                     );
                                     endMirrorSphere.position.copy(nextMirrorPos);
                                     scene.add(endMirrorSphere);
+                                    endMirrorSphere.visible = pipeLinesVisible;
                                     pipeSegments.push(endMirrorSphere);
                                     if (endSphere) {
                                         endMirrorSphere.userData.mirrorOf = endSphere;
@@ -2136,6 +2142,7 @@ if (snapAlignCheckbox) {
                                     mirrorLine.isLine = true;
                                     mirrorLine.userData.spheres = [startMirrorSphere, endMirrorSphere];
                                     scene.add(mirrorLine);
+                                    mirrorLine.visible = pipeLinesVisible;
                                     pipeSegments.push(mirrorLine);
 
                                     // 建立原始线段与镜像线段的双向引用（关键！）
@@ -2846,14 +2853,36 @@ recordUndo(() => {
             }
             toggleGeometryBtn.addEventListener('click', toggleGeometryVisibility);
             specularBtn.addEventListener('click', () => {
-                specularEnabled = !specularEnabled;
-                specularBtn.innerText = specularEnabled ? '🎨高光可见性' : '🎨高光可见性';
-                placedObjects.forEach(obj => { if (obj.material) { obj.material.roughness = specularEnabled ? 0.3 : 1.0; obj.material.metalness = specularEnabled ? 0.2 : 0; } });
-                if (previewMesh && previewMesh.material) { previewMesh.material.roughness = specularEnabled ? 0.3 : 1.0; previewMesh.material.metalness = specularEnabled ? 0.2 : 0; }
-                if (groundPlane && groundPlane.material) { groundPlane.material.roughness = specularEnabled ? 0.3 : 1.0; groundPlane.material.metalness = specularEnabled ? 0.2 : 0; }
-            });
-            outlineModeBtn.addEventListener('click', () => { outlineModeState = !outlineModeState; outlineModeBtn.innerText = outlineModeState ? '▦轮廓线可见性' : '▦轮廓线可见性'; toggleOutlineMode(outlineModeState); });
-            showLinesBtn.addEventListener('click', () => { showLinesState = !showLinesState; showLinesBtn.innerText = showLinesState ? '🦴骨架可见性' : '🦴骨架可见性'; showLinesBtn.classList.toggle('active', showLinesState); toggleSkeletonLines(showLinesState); });
+    specularEnabled = !specularEnabled;
+    // 更新按钮文字（保持不变，仅切换状态）
+    specularBtn.innerText = '🎨高光可见性';
+    // 切换 active 类（蓝色背景）
+    specularBtn.classList.toggle('active', specularEnabled);
+    
+    placedObjects.forEach(obj => { 
+        if (obj.material) { 
+            obj.material.roughness = specularEnabled ? 0.3 : 1.0; 
+            obj.material.metalness = specularEnabled ? 0.2 : 0; 
+        } 
+    });
+    if (previewMesh && previewMesh.material) { 
+        previewMesh.material.roughness = specularEnabled ? 0.3 : 1.0; 
+        previewMesh.material.metalness = specularEnabled ? 0.2 : 0; 
+    }
+    if (groundPlane && groundPlane.material) { 
+        groundPlane.material.roughness = specularEnabled ? 0.3 : 1.0; 
+        groundPlane.material.metalness = specularEnabled ? 0.2 : 0; 
+    }
+});
+            outlineModeBtn.addEventListener('click', () => { 
+    outlineModeState = !outlineModeState; 
+    outlineModeBtn.innerText = '▦轮廓线可见性'; 
+    // 切换 active 类（蓝色背景）
+    outlineModeBtn.classList.toggle('active', outlineModeState);
+    toggleOutlineMode(outlineModeState); 
+});
+            showLinesBtn.addEventListener('click', () => {pipeLinesVisible = !pipeLinesVisible;pipeSegments.forEach(obj => {obj.visible = pipeLinesVisible;});showLinesBtn.classList.toggle('active', pipeLinesVisible);
+});
 
             // 初始化
             updatePreviewMesh(true, true);
@@ -2907,6 +2936,9 @@ chkScaleLockXY.disabled = !chkScaleNon.checked;
             function animate() { requestAnimationFrame(animate); if (controls.enabled) controls.update(); renderer.render(scene, camera); }
             animate();
             console.log("初始化完成 | 创造模式线阵列 + 线 | 对称 | 吸附");
+            // 初始化高光按钮的 active 状态（specularEnabled 默认为 true）
+specularBtn.classList.toggle('active', specularEnabled);
+// 轮廓线按钮初始状态为 false，无需显式设置（默认无 active 类）
         }
     </script>
 </body>
