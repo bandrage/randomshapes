@@ -275,7 +275,7 @@
         Tab切换模式 <br>左键拖拽生成 <br>中键移动 <br>右键删除 <br>滚轮切形状 <br>A/D缩放 <br>Q/E高度 <br>R随机 <br>X对称 <br>空格阵列
     </div>
     <div id="arrayHintPanel" class="mode-hint mode-hint-array" style="display: none;">
-        Tab切换模式 <br>左键拖拽生成 <br>双击确认 <br>右键删除 <br>滚轮切形状 <br>A/D缩放 <br>Q/E间距 <br>R随机 <br>X对称 <br>空格放置
+        Tab切换模式 <br>左键拖拽生成 <br>ESC/Z取消当前<br>双击确认 <br>右键删除 <br>滚轮切形状 <br>A/D缩放 <br>Q/E间距 <br>R随机 <br>X对称 <br>空格放置
     </div>
     <div class="instruction">
         ⏪ Ctrl+Z 撤销<br>delete 一键清空<br>H 显示/隐藏几何体<br>CTRL+H 显示/隐藏线条(线阵列结果)<br>
@@ -312,7 +312,7 @@
 
     <!-- 线模式提示面板 -->
     <div id="pipeModePanel" style="display: none; position: absolute; bottom: 80px; left: 20px; background: #ffffff; color: #2c3e4e; padding: 4px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; z-index: 30; pointer-events: none; box-shadow: 0 2px 6px rgba(0,0,0,0.2);">
-    ✏️ 线: 左键加点 <br>双击结束 <br>A/D 调半径 <br>R 手动随机（勾选上方）
+    ✏️ 线: 左键加点 <br>双击结束 <br>ESC/Z取消当前<br>A/D 调半径 <br>R 手动随机（勾选上方）
     </div>
 
     <!-- 相机模式提示面板 -->
@@ -2750,7 +2750,7 @@ recordUndo(() => {
                     else toggleGeometryBtn.click();
                     return;
                 }
-                if (event.key === 'Escape') {
+                if (event.key === 'Escape'||event.key === 'z' || event.key === 'Z') {
                     if (isDrawingPipe) { resetPipeDrawing(); event.preventDefault(); return; }
                     if (isDrawingLine) { resetLineDrawing(); event.preventDefault(); return; }
                 }
