@@ -338,6 +338,9 @@
             <div class="light-dir-item"><span>强度</span><input type="range" id="lightIntensity" min="0" max="4" step="0.01" value="1.0"></div>
         </div>
         <div class="checkbox-item"><label><input type="checkbox" id="showGroundCheckbox"> 显示地面</label></div>
+        <div class="checkbox-item">
+    <label><input type="checkbox" id="previewModeCheckbox"> 预览模式（无阴影·无高光）</label>
+</div>
         <div class="checkbox-item"><label><input type="checkbox" id="showGridCheckbox" checked> 显示网格线</label></div>
         <div class="label">🌓 环境亮度</div>
         <input type="range" id="ambientIntensity" min="0" max="1" step="0.01" value="0.3">
@@ -356,6 +359,8 @@
         });
         
         function init() {
+            let previewMode = false;           // 是否开启预览模式（关闭阴影、强制哑光）
+let oldShadowMapState = true;      // 保存阴影开关状态，用于恢复
         let baseScale = new THREE.Vector3(1, 1, 1);       // 仅由 A/D 键修改
 let uniformFactor = new THREE.Vector3(1, 1, 1);   // 仅由等比随机修改
 let shapeRatio = new THREE.Vector3(1, 1, 1);      // 仅由不等比随机修改
@@ -404,6 +409,69 @@ let lockXYFactor = new THREE.Vector3(1, 1, 1);   // 水平锁定因子，X和Z�
             //let shapeRatio = new THREE.Vector3(1, 1, 1);   // 记录当前形状的轴间比例（不等比随机的结果）
             let symmetryLine = null;
             let undoStack = [];
+
+            function togglePreviewMode(enable) {
+    previewMode = enable;
+
+    // ----- 切换阴影 -----
+    if (enable) {
+        shadowReceiver.visible = false;         // 隐藏地面接收阴影的平面
+        oldShadowMapState = renderer.shadowMap.enabled;   // 保存当前状态
+        renderer.shadowMap.enabled = false;
+        // 关闭所有物体的投射/接收阴影
+        placedObjects.forEach(obj => { obj.castShadow = false; obj.receiveShadow = false; });
+        pipeSegments.forEach(obj => { if (obj.isMesh) { obj.castShadow = false; obj.receiveShadow = false; } });
+        // 关闭地面的阴影接收（如果需要）
+        if (groundPlane) groundPlane.receiveShadow = false;
+        // 可选的：隐藏网格线或地面（你自己决定）
+        // gridHelper.visible = false; 
+        // groundPlane.visible = false; 
+    } else {
+        shadowReceiver.visible = true;     // 恢复地面接收阴影的平面可见性
+        renderer.shadowMap.enabled = oldShadowMapState;
+        // 恢复阴影（原来的逻辑，但注意物体原来可能就有阴影，我们恢复为 true）
+        placedObjects.forEach(obj => { obj.castShadow = true; obj.receiveShadow = true; });
+        pipeSegments.forEach(obj => { if (obj.isMesh) { obj.castShadow = true; obj.receiveShadow = true; } });
+        if (groundPlane) groundPlane.receiveShadow = true;
+        // 恢复网格线显示（如果之前隐藏了）
+        // gridHelper.visible = showGridCheckbox.checked;
+        // groundPlane.visible = showGroundCheckbox.checked;
+    }
+
+    // ----- 更新所有物体的材质（变为哑光或恢复） -----
+    function refreshMaterials(objects) {
+        objects.forEach(obj => {
+            if (obj.material && obj.material.isMeshStandardMaterial) {
+                const oldMat = obj.material;
+                const newMat = createSolidMaterial();
+                // 保留原有颜色（重要！）
+                newMat.color.copy(oldMat.color);
+                obj.material = newMat;
+                oldMat.dispose();
+            }
+        });
+    }
+    refreshMaterials(placedObjects);
+    // 更新 pipeSegments 中的网格（球体端点）
+    const pipeMeshes = pipeSegments.filter(obj => obj.isMesh);
+    refreshMaterials(pipeMeshes);
+    // 更新预览物体
+    if (previewMesh && previewMesh.material) {
+        const oldMat = previewMesh.material;
+        const newMat = createSolidMaterial();
+        newMat.color.copy(oldMat.color);
+        previewMesh.material = newMat;
+        oldMat.dispose();
+    }
+    // 更新地面（如果它用的是标准材质）
+    if (groundPlane && groundPlane.material && groundPlane.material.isMeshStandardMaterial) {
+        const oldMat = groundPlane.material;
+        const newMat = createSolidMaterial();
+        newMat.color.copy(oldMat.color);
+        groundPlane.material = newMat;
+        oldMat.dispose();
+    }
+}
 
             function applyPreviewScale() {
     if (!previewMesh) return;
@@ -523,7 +591,12 @@ let lockXYFactor = new THREE.Vector3(1, 1, 1);   // 水平锁定因子，X和Z�
             gridHelper.position.y = -0.01;
             scene.add(gridHelper);
             const showGridCheckbox = document.getElementById('showGridCheckbox');
-            showGridCheckbox.addEventListener('change', (e) => { gridHelper.visible = e.target.checked; });
+            showGridCheckbox.addEventListener('change', (e) => {
+    const visible = e.target.checked;
+    gridHelper.visible = visible;
+    centerLineX.visible = visible;
+    centerLineZ.visible = visible;
+});
             const centerLineMaterial = new THREE.LineBasicMaterial({ color: 0x66ccff });
             const centerLineX = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-0.5, -0.01, 0), new THREE.Vector3(0.5, -0.01, 0)]), centerLineMaterial);
             const centerLineZ = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -0.01, -0.5), new THREE.Vector3(0, -0.01, 0.5)]), centerLineMaterial);
@@ -537,7 +610,23 @@ let lockXYFactor = new THREE.Vector3(1, 1, 1);   // 水平锁定因子，X和Z�
 
             // 材质
             let specularEnabled = true;
-            function createSolidMaterial() { return new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: specularEnabled ? 0.3 : 1.0, metalness: specularEnabled ? 0.2 : 0 }); }
+            function createSolidMaterial() {
+    if (previewMode) {
+        // 预览模式：无高光、无金属、保留明暗（MeshStandardMaterial 仍受光照）
+        return new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            roughness: 1.0,
+            metalness: 0
+        });
+    } else {
+        // 正常模式：按 specularEnabled 控制
+        return new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            roughness: specularEnabled ? 0.3 : 1.0,
+            metalness: specularEnabled ? 0.2 : 0
+        });
+    }
+}
             const PREVIEW_MATERIAL = new THREE.MeshStandardMaterial({ color: 0x88aaff, transparent: true, opacity: 0.65, roughness: 0.3, metalness: 0.2 });
             const groundMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: specularEnabled ? 0.3 : 1.0, metalness: specularEnabled ? 0.2 : 0, side: THREE.DoubleSide });
             const groundPlane = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), groundMaterial);
@@ -2939,6 +3028,9 @@ chkScaleLockXY.disabled = !chkScaleNon.checked;
             // 初始化高光按钮的 active 状态（specularEnabled 默认为 true）
 specularBtn.classList.toggle('active', specularEnabled);
 // 轮廓线按钮初始状态为 false，无需显式设置（默认无 active 类）
+document.getElementById('previewModeCheckbox').addEventListener('change', function(e) {
+    togglePreviewMode(e.target.checked);
+});
         }
     </script>
 </body>
